@@ -11,6 +11,9 @@ Der Adapter ist TypeScript, kompiliert nach CommonJS (`build/`) und lädt das SD
   gerätespezifischer Code** — neue Geräte/Capabilities sollen allein über das Manifest erscheinen.
 - Eine Property kann mehrere Reads in verschiedenen Capabilities speisen (`battery` → `battery.level`,
   `lock.battery`); `propertyChanged` muss alle aktualisieren.
+- SDK 0.5.x beschreibt einen Schreibbefehl als `stateful` (mit `reflects`) nur, wenn das Gerät den Wert meldet;
+  sonst als `momentary` ohne `reflects` (Blind-Schreiben, z. B. `camera.setImageFlipped` an der T8142). Der
+  Adapter legt dafür einen Nur-Schreib-Datenpunkt an — das ist so gewollt, nicht als Fehler „korrigieren“.
 - Das SDK verweigert unverifizierte Schreibpfade mit einer Exception — das ist gewollt; der Adapter loggt eine
   Warnung und läuft weiter.
 
