@@ -321,7 +321,15 @@ class EufyNext extends utils.Adapter {
     // ----------------------------------------------------------------------------------------------------
 
     private wireClientEvents(eufy: EufyMega): void {
-        eufy.on("error", (err: Error) => this.log.warn(`eufy: ${err.message}`));
+        eufy.on("error", (err: Error) => {
+            // The push-check step after the token registration is best-effort in the SDK; the cloud
+            // commonly answers -1 there while push delivery works. Not worth a warning on every start.
+            if (err.message.includes("/app/review/app_push_check")) {
+                this.log.debug(`eufy: ${err.message} (best-effort push check, ignored)`);
+                return;
+            }
+            this.log.warn(`eufy: ${err.message}`);
+        });
 
         eufy.on("sessionExpired", (err) => {
             this.devicesLoaded = false;
