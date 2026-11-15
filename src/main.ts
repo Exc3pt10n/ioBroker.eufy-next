@@ -449,7 +449,7 @@ class EufyNext extends utils.Adapter {
 
         if (this.config.saveSnapshots && SNAPSHOT_EVENTS.has(e.eventName) && e.deviceSn) {
             // The stored thumbnail is retained from the same push; give it a moment to land.
-            this.setTimeout(() => void this.storeSnapshot(h, false), 3000);
+            this.setTimeout(() => void this.storeSnapshot(h, false, "event"), 3000);
         }
     }
 
@@ -696,7 +696,13 @@ class EufyNext extends utils.Adapter {
         }
     }
 
-    private async storeSnapshot(h: DeviceHandle, live: boolean): Promise<void> {
+    /** Devices already told (once per run) that their pushes carry no thumbnail. */
+    private readonly thumbnailHinted = new Set<string>();
+
+    /**
+     * @param origin `event`: after a detection push; `button`: the user asked for it — failures are reported louder.
+     */
+    private async storeSnapshot(h: DeviceHandle, live: boolean, origin: "event" | "button" = "button"): Promise<void> {
         const camera = this.capObject(h, "camera");
         const fn = camera?.[live ? "snapshotLive" : "snapshotStored"];
         if (typeof fn !== "function") {
@@ -706,7 +712,20 @@ class EufyNext extends utils.Adapter {
         try {
             img = await (fn as () => Promise<unknown>).call(camera);
         } catch (e) {
-            this.log.debug(`No ${live ? "live" : "stored"} snapshot for ${h.sn}: ${errText(e)}`);
+            const why = errText(e);
+            if (live) {
+                this.log.warn(`Live snapshot for ${h.manifest.name} failed: ${why}`);
+            } else if (origin === "button") {
+                this.log.info(`No event thumbnail stored for ${h.manifest.name} yet: ${why}`);
+            } else if (!this.thumbnailHinted.has(h.sn)) {
+                this.thumbnailHinted.add(h.sn);
+                this.log.info(
+                    `${h.manifest.name}: the event carried no thumbnail, so no snapshot was saved. In the eufy app, ` +
+                        `set the camera's notification style to one that includes a thumbnail (not "text only"). (${why})`,
+                );
+            } else {
+                this.log.debug(`No stored snapshot for ${h.sn}: ${why}`);
+            }
             return;
         }
         if (!Buffer.isBuffer(img) || !img.length) {
