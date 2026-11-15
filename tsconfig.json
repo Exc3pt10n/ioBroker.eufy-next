@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "node16",
+    "moduleResolution": "node16",
+    "lib": ["ES2023"],
+    "types": ["node", "@iobroker/types"],
+    "strict": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "outDir": "build",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

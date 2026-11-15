@@ -1,0 +1,7 @@
+node_modules/
+build/
+.eufy-session.json
+*.log
+.DS_Store
+.idea/
+.vscode/

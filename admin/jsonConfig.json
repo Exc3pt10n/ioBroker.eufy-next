@@ -1,0 +1,201 @@
+{
+    "i18n": false,
+    "type": "tabs",
+    "items": {
+        "account": {
+            "type": "panel",
+            "label": { "en": "Account", "de": "Konto" },
+            "items": {
+                "hdrAccount": {
+                    "type": "header",
+                    "size": 4,
+                    "text": { "en": "eufy account", "de": "eufy-Konto" }
+                },
+                "email": {
+                    "type": "text",
+                    "label": { "en": "E-mail", "de": "E-Mail" },
+                    "xs": 12, "sm": 12, "md": 6, "lg": 4,
+                    "newLine": true
+                },
+                "password": {
+                    "type": "password",
+                    "label": { "en": "Password", "de": "Passwort" },
+                    "repeat": false,
+                    "visible": true,
+                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                },
+                "countryCode": {
+                    "type": "text",
+                    "label": { "en": "Country code of the account", "de": "Ländercode des Kontos" },
+                    "help": { "en": "Two letters, e.g. DE, AT, CH, GB, US — selects the cloud region", "de": "Zwei Buchstaben, z. B. DE, AT, CH, GB, US — bestimmt die Cloud-Region" },
+                    "maxLength": 2,
+                    "xs": 12, "sm": 6, "md": 3, "lg": 2,
+                    "newLine": true
+                },
+                "hint": {
+                    "type": "staticText",
+                    "newLine": true,
+                    "xs": 12,
+                    "text": {
+                        "en": "Tip: create a second eufy account, share your devices with it in the eufy app and use it here. That way the adapter never logs your phone out.",
+                        "de": "Tipp: Lege ein zweites eufy-Konto an, teile deine Geräte in der eufy-App damit und nutze es hier. So meldet der Adapter dein Handy nie ab."
+                    }
+                }
+            }
+        },
+        "login": {
+            "type": "panel",
+            "label": { "en": "Login (2FA / captcha)", "de": "Anmeldung (2FA / Captcha)" },
+            "items": {
+                "hdrStatus": {
+                    "type": "header",
+                    "size": 4,
+                    "text": { "en": "Login status", "de": "Anmeldestatus" }
+                },
+                "statusText": {
+                    "type": "staticText",
+                    "newLine": true,
+                    "xs": 12,
+                    "text": {
+                        "en": "The instance must be running. Do NOT save the settings while a login is pending — saving restarts the instance and eufy will send a new code.",
+                        "de": "Die Instanz muss laufen. Speichere die Einstellungen NICHT, während eine Anmeldung offen ist — Speichern startet die Instanz neu und eufy schickt einen neuen Code."
+                    }
+                },
+                "btnStatus": {
+                    "type": "textSendTo",
+                    "command": "loginStatus",
+                    "container": "div",
+                    "newLine": true,
+                    "xs": 12
+                },
+                "hdrCode": {
+                    "type": "header",
+                    "size": 5,
+                    "newLine": true,
+                    "text": { "en": "Verification code (2FA)", "de": "Bestätigungscode (2FA)" }
+                },
+                "_verifyCode": {
+                    "type": "text",
+                    "label": { "en": "Code from e-mail / SMS", "de": "Code aus E-Mail / SMS" },
+                    "doNotSave": true,
+                    "newLine": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "btnCode": {
+                    "type": "sendTo",
+                    "label": { "en": "Submit code", "de": "Code senden" },
+                    "command": "verifyCode",
+                    "jsonData": "{\"code\": \"${data._verifyCode}\"}",
+                    "variant": "contained",
+                    "showProcess": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "hdrCaptcha": {
+                    "type": "header",
+                    "size": 5,
+                    "newLine": true,
+                    "text": { "en": "Captcha (only when requested)", "de": "Captcha (nur wenn angefordert)" }
+                },
+                "captchaImg": {
+                    "type": "imageSendTo",
+                    "command": "captchaImage",
+                    "height": 80,
+                    "newLine": true,
+                    "xs": 12
+                },
+                "_captchaAnswer": {
+                    "type": "text",
+                    "label": { "en": "Captcha characters", "de": "Captcha-Zeichen" },
+                    "doNotSave": true,
+                    "newLine": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "btnCaptcha": {
+                    "type": "sendTo",
+                    "label": { "en": "Submit captcha", "de": "Captcha senden" },
+                    "command": "captcha",
+                    "jsonData": "{\"answer\": \"${data._captchaAnswer}\"}",
+                    "variant": "contained",
+                    "showProcess": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "hdrRelogin": {
+                    "type": "header",
+                    "size": 5,
+                    "newLine": true,
+                    "text": { "en": "Reset session", "de": "Sitzung zurücksetzen" }
+                },
+                "btnRelogin": {
+                    "type": "sendTo",
+                    "label": { "en": "Discard session and log in again", "de": "Sitzung verwerfen und neu anmelden" },
+                    "command": "relogin",
+                    "confirm": {
+                        "text": { "en": "This usually requires a new 2FA code. Continue?", "de": "Dafür ist meist ein neuer 2FA-Code nötig. Fortfahren?" },
+                        "title": { "en": "Log in again", "de": "Neu anmelden" },
+                        "ok": { "en": "Yes", "de": "Ja" },
+                        "cancel": { "en": "Cancel", "de": "Abbrechen" }
+                    },
+                    "newLine": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                }
+            }
+        },
+        "options": {
+            "type": "panel",
+            "label": { "en": "Options", "de": "Optionen" },
+            "items": {
+                "pollIntervalMin": {
+                    "type": "number",
+                    "label": { "en": "Cloud poll interval (minutes)", "de": "Cloud-Abfrageintervall (Minuten)" },
+                    "help": { "en": "Realtime events arrive via push/MQTT/P2P anyway; the poll catches values that are only reported to the cloud.", "de": "Echtzeit-Ereignisse kommen ohnehin per Push/MQTT/P2P; die Abfrage holt Werte, die nur an die Cloud gemeldet werden." },
+                    "min": 1, "max": 120,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "cacheTtlSec": {
+                    "type": "number",
+                    "label": { "en": "Value cache TTL (seconds)", "de": "Werte-Cache-Dauer (Sekunden)" },
+                    "min": 5, "max": 3600,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "eventResetSec": {
+                    "type": "number",
+                    "label": { "en": "Reset event states after (seconds, 0 = never)", "de": "Ereignis-Datenpunkte zurücksetzen nach (Sekunden, 0 = nie)" },
+                    "min": 0, "max": 3600,
+                    "newLine": true,
+                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                },
+                "saveSnapshots": {
+                    "type": "checkbox",
+                    "label": { "en": "Save camera thumbnail on motion/person/doorbell events", "de": "Kamera-Vorschaubild bei Bewegung/Person/Klingel speichern" },
+                    "newLine": true,
+                    "xs": 12, "sm": 12, "md": 8
+                },
+                "ffmpegPath": {
+                    "type": "text",
+                    "label": { "en": "Path to ffmpeg (optional, only for live snapshots)", "de": "Pfad zu ffmpeg (optional, nur für Live-Snapshots)" },
+                    "newLine": true,
+                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                },
+                "excludeDevices": {
+                    "type": "text",
+                    "label": { "en": "Ignore devices (serial numbers, comma separated)", "de": "Geräte ignorieren (Seriennummern, kommagetrennt)" },
+                    "newLine": true,
+                    "xs": 12, "sm": 12, "md": 8
+                },
+                "openudid": {
+                    "type": "text",
+                    "label": { "en": "Client identity (openudid, optional)", "de": "Client-Kennung (openudid, optional)" },
+                    "help": { "en": "Leave empty — a stable random identity is generated per instance.", "de": "Leer lassen — pro Instanz wird eine stabile Zufallskennung erzeugt." },
+                    "newLine": true,
+                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                },
+                "sdkDebug": {
+                    "type": "checkbox",
+                    "label": { "en": "Verbose SDK logging (info/warn of the SDK in the ioBroker log)", "de": "Ausführliches SDK-Logging (Info/Warnungen des SDK im ioBroker-Log)" },
+                    "newLine": true,
+                    "xs": 12
+                }
+            }
+        }
+    }
+}

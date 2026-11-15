@@ -1,0 +1,20 @@
+// Augments the ioBroker adapter config with this adapter's native settings (see admin/jsonConfig.json).
+declare global {
+    namespace ioBroker {
+        interface AdapterConfig {
+            email: string;
+            password: string;
+            countryCode: string;
+            openudid: string;
+            pollIntervalMin: number;
+            cacheTtlSec: number;
+            eventResetSec: number;
+            saveSnapshots: boolean;
+            ffmpegPath: string;
+            excludeDevices: string;
+            sdkDebug: boolean;
+        }
+    }
+}
+
+export {};

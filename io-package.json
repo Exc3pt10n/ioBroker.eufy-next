@@ -1,0 +1,206 @@
+{
+    "common": {
+        "name": "eufy-next",
+        "version": "0.1.0",
+        "news": {
+            "0.1.0": {
+                "en": "Initial release based on @mega-yfue/eufy-sdk",
+                "de": "Erste Version auf Basis von @mega-yfue/eufy-sdk"
+            }
+        },
+        "titleLang": {
+            "en": "eufy (next)",
+            "de": "eufy (next)"
+        },
+        "desc": {
+            "en": "Anker eufy cameras, doorbells, locks, sensors, vacuums and lights via the eufy v6 cloud (eufy-sdk)",
+            "de": "Anker eufy Kameras, Türklingeln, Schlösser, Sensoren, Saugroboter und Lampen über die eufy v6 Cloud (eufy-sdk)"
+        },
+        "authors": ["Exc3pt10n"],
+        "keywords": ["eufy", "anker", "camera", "doorbell", "security", "vacuum", "lock"],
+        "licenseInformation": {
+            "type": "free",
+            "license": "MIT"
+        },
+        "platform": "Javascript/Node.js",
+        "icon": "eufy-next.svg",
+        "extIcon": "https://raw.githubusercontent.com/Exc3pt10n/ioBroker.eufy-next/main/admin/eufy-next.svg",
+        "readme": "https://github.com/Exc3pt10n/ioBroker.eufy-next/blob/main/README.md",
+        "loglevel": "info",
+        "tier": 2,
+        "mode": "daemon",
+        "type": "iot-systems",
+        "compact": true,
+        "connectionType": "cloud",
+        "dataSource": "push",
+        "messagebox": true,
+        "adminUI": {
+            "config": "json"
+        },
+        "dependencies": [
+            {
+                "js-controller": ">=6.0.11"
+            }
+        ],
+        "globalDependencies": [
+            {
+                "admin": ">=7.4.10"
+            }
+        ]
+    },
+    "encryptedNative": ["password"],
+    "protectedNative": ["password"],
+    "native": {
+        "email": "",
+        "password": "",
+        "countryCode": "DE",
+        "openudid": "",
+        "pollIntervalMin": 10,
+        "cacheTtlSec": 15,
+        "eventResetSec": 30,
+        "saveSnapshots": true,
+        "ffmpegPath": "",
+        "excludeDevices": "",
+        "sdkDebug": false
+    },
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": { "name": "Information" },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Connected to eufy cloud",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.loginStatus",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Login status",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": "",
+                "states": {
+                    "logging_in": "logging in",
+                    "ok": "ok",
+                    "captcha": "captcha required",
+                    "2fa": "verification code required",
+                    "error": "error",
+                    "no_credentials": "no credentials"
+                }
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.loginMessage",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Login message",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.captchaImage",
+            "type": "state",
+            "common": {
+                "role": "url",
+                "name": "Captcha image (data URL)",
+                "type": "string",
+                "read": true,
+                "write": false,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.pushConnected",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Push notifications connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.mqttConnected",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "MQTT realtime connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        },
+        {
+            "_id": "auth",
+            "type": "channel",
+            "common": { "name": "Login (2FA / captcha)" },
+            "native": {}
+        },
+        {
+            "_id": "auth.verifyCode",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Enter 2FA verification code",
+                "type": "string",
+                "read": true,
+                "write": true,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "auth.captchaAnswer",
+            "type": "state",
+            "common": {
+                "role": "text",
+                "name": "Enter captcha answer",
+                "type": "string",
+                "read": true,
+                "write": true,
+                "def": ""
+            },
+            "native": {}
+        },
+        {
+            "_id": "auth.relogin",
+            "type": "state",
+            "common": {
+                "role": "button",
+                "name": "Discard session and log in again",
+                "type": "boolean",
+                "read": false,
+                "write": true,
+                "def": false
+            },
+            "native": {}
+        }
+    ]
+}
