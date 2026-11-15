@@ -6,7 +6,7 @@
  */
 import * as utils from "@iobroker/adapter-core";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { accessSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 import type {
     AnyDeviceEvent,
@@ -31,6 +31,15 @@ import {
     sanitizeId,
     toStateValue,
 } from "./lib/mapping";
+import {
+    type Go2rtcOptions,
+    type LiveConsumerLike,
+    Go2rtcServer,
+    LiveSession,
+    detectHostname,
+    playerUrls,
+    pushUrl,
+} from "./lib/livestream";
 
 type Sdk = typeof import("@mega-yfue/eufy-sdk", { with: { "resolution-mode": "import" } });
 
@@ -83,6 +92,10 @@ class EufyNext extends utils.Adapter {
     private excluded = new Set<string>();
     private loginInFlight = false;
     private devicesLoaded = false;
+    private go2rtc?: Go2rtcServer;
+    private go2rtcOpts?: Go2rtcOptions;
+    private readonly liveSessions = new Map<string, LiveSession>();
+    private ffmpegBin?: string;
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: "eufy-next" });
@@ -142,6 +155,11 @@ class EufyNext extends utils.Adapter {
                 this.clearTimeout(t);
             }
             this.eventResetTimers.clear();
+            for (const s of this.liveSessions.values()) {
+                s.stop("adapter stopping");
+            }
+            this.liveSessions.clear();
+            await this.go2rtc?.stop();
             if (this.eufy) {
                 await Promise.race([this.eufy.disconnect(), new Promise((r) => setTimeout(r, 4000))]);
             }
@@ -193,7 +211,7 @@ class EufyNext extends utils.Adapter {
         const dir = this.dataDir();
         const log = this.log;
         const verbose = !!this.config.sdkDebug;
-        const ffmpegPath = this.config.ffmpegPath?.trim();
+        const ffmpegPath = this.ffmpeg();
         return new sdk.EufyMega({
             email: this.config.email.trim(),
             password: this.config.password,
@@ -211,6 +229,37 @@ class EufyNext extends utils.Adapter {
                 error: (m: string, ...a: unknown[]) => log.warn(`[sdk] ${fmt(m, a)}`),
             },
         });
+    }
+
+    /** ffmpeg to run: the configured path, else one on PATH, else the bundled ffmpeg-static. */
+    private ffmpeg(): string | undefined {
+        if (this.ffmpegBin !== undefined) {
+            return this.ffmpegBin || undefined;
+        }
+        const configured = this.config.ffmpegPath?.trim();
+        let found = configured || "";
+        if (!found) {
+            const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+            for (const dir of (process.env.PATH ?? "").split(path.delimiter).filter(Boolean)) {
+                try {
+                    accessSync(path.join(dir, exe), fsConstants.X_OK);
+                    found = path.join(dir, exe);
+                    break;
+                } catch {
+                    // not here
+                }
+            }
+        }
+        if (!found) {
+            try {
+                found = (require("ffmpeg-static") as string | null) ?? "";
+            } catch {
+                found = "";
+            }
+        }
+        this.ffmpegBin = found;
+        this.log.debug(`ffmpeg: ${found || "not available"}`);
+        return found || undefined;
     }
 
     private async startLogin(): Promise<void> {
@@ -560,6 +609,7 @@ class EufyNext extends utils.Adapter {
         }
 
         await this.buildSnapshotObjects(h);
+        await this.buildLivestreamObjects(h);
         await this.removeStaleObjects(h);
     }
 
@@ -731,11 +781,161 @@ class EufyNext extends utils.Adapter {
         if (!Buffer.isBuffer(img) || !img.length) {
             return;
         }
+        await this.saveSnapshot(h, img);
+    }
+
+    private async saveSnapshot(h: DeviceHandle, img: Buffer): Promise<void> {
         await this.ensureFilesMeta();
         const file = `${h.oid}/snapshot.jpg`;
         await this.writeFileAsync(this.namespace, file, img);
         await this.setStateAsync(`${h.oid}.snapshot.url`, `/files/${this.namespace}/${file}`, true);
         await this.setStateAsync(`${h.oid}.snapshot.updated`, Date.now(), true);
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+    // Livestream (go2rtc)
+    // ----------------------------------------------------------------------------------------------------
+
+    private liveOptions(): Go2rtcOptions | undefined {
+        if (this.go2rtcOpts) {
+            return this.go2rtcOpts;
+        }
+        let binary: string | null = null;
+        try {
+            binary = require("go2rtc-static") as string | null;
+        } catch {
+            binary = null;
+        }
+        const ffmpeg = this.ffmpeg();
+        if (!binary || !ffmpeg) {
+            return undefined;
+        }
+        const port = (v: unknown, d: number): number => {
+            const n = Number(v);
+            return Number.isInteger(n) && n > 0 && n < 65536 ? n : d;
+        };
+        this.go2rtcOpts = {
+            binary,
+            ffmpeg,
+            apiPort: port(this.config.liveApiPort, 1984),
+            rtspPort: port(this.config.liveRtspPort, 8554),
+            webrtcPort: port(this.config.liveWebrtcPort, 8555),
+            hostname: this.config.liveHostname?.trim() || detectHostname(),
+            rtspUsername: this.config.liveRtspUsername?.trim() || undefined,
+            rtspPassword: this.config.liveRtspPassword || undefined,
+        };
+        return this.go2rtcOpts;
+    }
+
+    private async buildLivestreamObjects(h: DeviceHandle): Promise<void> {
+        const camera = this.capObject(h, "camera");
+        if (this.config.liveEnabled === false || !camera || typeof camera.live !== "function") {
+            return;
+        }
+        const base = `${h.oid}.livestream`;
+        await this.ensureChannel(base, "Livestream");
+        await this.ensureState(`${base}.start`, {
+            ...stateDef("Start livestream", "boolean", "button.start"),
+            read: false,
+            write: true,
+        });
+        await this.ensureState(`${base}.stop`, {
+            ...stateDef("Stop livestream", "boolean", "button.stop"),
+            read: false,
+            write: true,
+        });
+        await this.ensureState(`${base}.url`, stateDef("Player URL (only while streaming)", "string", "url"));
+        await this.ensureState(`${base}.rtsp`, stateDef("RTSP URL (only while streaming)", "string", "url"));
+        await this.ensureState(`${base}.active`, stateDef("Streaming", "boolean", "indicator"));
+        this.writeHandlers.set(`${this.namespace}.${base}.start`, () => this.startLive(h));
+        this.writeHandlers.set(`${this.namespace}.${base}.stop`, async () => this.liveSessions.get(h.sn)?.stop("stopped"));
+        if (!this.liveSessions.has(h.sn)) {
+            await this.setLiveStates(h, undefined);
+        }
+        this.go2rtcServer()?.register(h.oid);
+    }
+
+    private go2rtcServer(): Go2rtcServer | undefined {
+        if (!this.go2rtc) {
+            const opts = this.liveOptions();
+            if (!opts) {
+                return undefined;
+            }
+            this.go2rtc = new Go2rtcServer(opts, {
+                debug: (m) => this.log.debug(m),
+                info: (m) => this.log.info(m),
+                warn: (m) => this.log.warn(m),
+            });
+        }
+        return this.go2rtc;
+    }
+
+    private async setLiveStates(h: DeviceHandle, urls: { url: string; rtsp: string } | undefined): Promise<void> {
+        const base = `${h.oid}.livestream`;
+        await this.setStateAsync(`${base}.url`, urls?.url ?? "", true);
+        await this.setStateAsync(`${base}.rtsp`, urls?.rtsp ?? "", true);
+        await this.setStateAsync(`${base}.active`, !!urls, true);
+    }
+
+    private async startLive(h: DeviceHandle): Promise<void> {
+        if (this.liveSessions.has(h.sn)) {
+            this.log.info(`${h.manifest.name}: livestream already running`);
+            return;
+        }
+        const server = this.go2rtcServer();
+        const opts = this.go2rtcOpts;
+        if (!server || !opts) {
+            throw new Error("livestream needs ffmpeg and go2rtc, but at least one is not available on this host");
+        }
+        const camera = this.capObject(h, "camera");
+        const live = camera?.live;
+        if (typeof live !== "function") {
+            throw new Error("this camera offers no livestream");
+        }
+        const stream = h.oid;
+        await server.ensure(stream);
+        this.log.info(`${h.manifest.name}: starting livestream`);
+        let consumer: LiveConsumerLike;
+        try {
+            consumer = (await (live as () => Promise<LiveConsumerLike>).call(camera)) as LiveConsumerLike;
+        } catch (e) {
+            await this.setLiveStates(h, undefined);
+            throw new Error(`camera did not start streaming: ${errText(e)}`);
+        }
+        const maxSec = Number(this.config.liveMaxDurationSec);
+        let snapshotTimer: ioBroker.Timeout | undefined;
+        const session = new LiveSession(consumer, {
+            stream,
+            ffmpeg: opts.ffmpeg,
+            target: pushUrl(opts, stream),
+            maxDurationMs: (Number.isFinite(maxSec) && maxSec >= 0 ? maxSec : 120) * 1000,
+            log: { debug: (m) => this.log.debug(m), info: (m) => this.log.info(m), warn: (m) => this.log.warn(m) },
+            onActive: () => {
+                const urls = playerUrls(opts, stream);
+                this.log.info(`${h.manifest.name}: livestream running — ${urls.url}`);
+                void this.setLiveStates(h, urls);
+                if (this.config.liveSnapshot !== false) {
+                    // A still from the running stream: a fresh tile picture without waking the camera again.
+                    snapshotTimer = this.setTimeout(() => {
+                        void server
+                            .frame(stream)
+                            .then((jpg) => (jpg.length ? this.saveSnapshot(h, jpg) : undefined))
+                            .catch((e) => this.log.debug(`No frame from go2rtc for ${h.sn}: ${errText(e)}`));
+                    }, 4000);
+                }
+            },
+            onEnded: (reason) => {
+                if (snapshotTimer) {
+                    this.clearTimeout(snapshotTimer);
+                }
+                if (this.liveSessions.get(h.sn) === session) {
+                    this.liveSessions.delete(h.sn);
+                }
+                this.log.info(`${h.manifest.name}: livestream ended (${reason})`);
+                void this.setLiveStates(h, undefined);
+            },
+        });
+        this.liveSessions.set(h.sn, session);
     }
 
     private filesMetaReady = false;

@@ -13,6 +13,15 @@ declare global {
             ffmpegPath: string;
             excludeDevices: string;
             sdkDebug: boolean;
+            liveEnabled: boolean;
+            liveHostname: string;
+            liveApiPort: number;
+            liveRtspPort: number;
+            liveWebrtcPort: number;
+            liveMaxDurationSec: number;
+            liveRtspUsername: string;
+            liveRtspPassword: string;
+            liveSnapshot: boolean;
         }
     }
 }

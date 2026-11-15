@@ -32,7 +32,61 @@ export class FileSessionStore {
 export class FileFcmStore extends FileSessionStore {}
 
 const SN = "T8420FAKE0001";
-const CAPS = ["light", "battery", "lock", "arming"];
+const CAPS = ["light", "battery", "lock", "arming", "camera"];
+
+/** Annex-B H.264 file → access units (the test encodes it with AUD NAL units as separators). */
+function accessUnits(buf) {
+    const out = [];
+    let last = 0;
+    for (let i = 4; i < buf.length - 4; i++) {
+        if (buf[i] === 0 && buf[i + 1] === 0 && buf[i + 2] === 0 && buf[i + 3] === 1 && (buf[i + 4] & 0x1f) === 9) {
+            out.push(buf.subarray(last, i));
+            last = i;
+        }
+    }
+    out.push(buf.subarray(last));
+    return out.filter((u) => u.length);
+}
+function isIdr(u) {
+    for (let i = 0; i < u.length - 4; i++) if (u[i] === 0 && u[i + 1] === 0 && u[i + 2] === 1 && (u[i + 3] & 0x1f) === 5) return true;
+    return false;
+}
+function adtsFrames(buf) {
+    const out = [];
+    for (let i = 0; i + 7 < buf.length; ) {
+        const len = ((buf[i + 3] & 3) << 11) | (buf[i + 4] << 3) | (buf[i + 5] >> 5);
+        out.push(buf.subarray(i, i + len));
+        i += len;
+    }
+    return out;
+}
+
+/** A live consumer that plays the test's H.264 + AAC files in real time, looping. */
+class FakeLive extends EventEmitter {
+    constructor() {
+        super();
+        const v = process.env.FAKE_SDK_H264 && existsSync(process.env.FAKE_SDK_H264) ? accessUnits(readFileSync(process.env.FAKE_SDK_H264)) : [];
+        const a = process.env.FAKE_SDK_AAC && existsSync(process.env.FAKE_SDK_AAC) ? adtsFrames(readFileSync(process.env.FAKE_SDK_AAC)) : [];
+        let vi = 0;
+        let ai = 0;
+        this.timers = [
+            v.length && setInterval(() => {
+                const u = v[vi++ % v.length];
+                this.emit("video", { keyframe: isIdr(u), codec: "h264", width: 320, height: 240, data: u });
+            }, 1000 / 15),
+            a.length && setInterval(() => this.emit("audio", { codec: "aac-lc", data: a[ai++ % a.length] }), 64),
+        ].filter(Boolean);
+        record({ type: "liveStart" });
+    }
+    pause() {}
+    resume() {}
+    stop() {
+        if (!this.timers.length) return;
+        this.timers.forEach(clearInterval);
+        this.timers = [];
+        record({ type: "liveStop" });
+    }
+}
 
 function makeDevice(client) {
     const modules = CAPS.map((c) => real.CAPABILITY_MODULES[c] ?? Object.values(real.CAPABILITY_MODULES).find((m) => m.capability === c));
@@ -50,7 +104,18 @@ function makeDevice(client) {
             record({ type: "command", cmd });
         },
     };
-    const bound = real.buildActions(CAPS, { ctx, sink, read: (name) => (values.has(name) ? { value: values.get(name) } : undefined) });
+    const media = {
+        live: async () => new FakeLive(),
+        snapshotLive: async () => Buffer.from("not a jpeg"),
+    };
+    const bound = real.buildActions(CAPS, {
+        ctx,
+        sink,
+        media,
+        read: (name) => (values.has(name) ? { value: values.get(name) } : undefined),
+    });
+    // The stored push thumbnail lives in the client's image cache, which this fake does not have.
+    Object.defineProperty(bound.camera, "snapshotStored", { value: async () => Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
     const dev = {
         sn: SN,
         describe: () => ({
