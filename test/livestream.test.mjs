@@ -103,3 +103,12 @@ test("LiveSession rejects an unsupported video codec", async () => {
     c.emit("video", { keyframe: true, codec: "av1", data: Buffer.alloc(4) });
     assert.equal(ended, "unsupported video codec av1");
 });
+
+test("HTTPS: TLS on the player port, plain HTTP for the adapter on loopback next to it", () => {
+    const o = { ...opts, https: { cert: "CERT", key: "KEY" } };
+    const c = L.go2rtcConfig(o, ["CAM1"]);
+    assert.deepEqual(c.api, { listen: "127.0.0.1:1985", tls_listen: ":1984", tls_cert: "CERT", tls_key: "KEY" });
+    assert.equal(L.internalApiPort(o), 1985);
+    assert.equal(L.internalApiPort(opts), 1984);
+    assert.equal(L.playerUrls(o, "CAM1").url, "https://10.0.0.5:1984/stream.html?src=CAM1");
+});

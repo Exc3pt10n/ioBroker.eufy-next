@@ -40,8 +40,11 @@ eufy-next.0
     ├── arming.mode
     ├── events.motion.triggered / lastTriggered / payload
     ├── events.lastEvent
-    ├── snapshot.url / updated / refreshStored / refreshLive      (cameras)
-    └── livestream.start / stop / url / rtsp / active             (cameras)
+    ├── snapshot.url / dataUrl / updated / refreshStored / refreshLive   (cameras)
+    ├── livestream.start / stop / url / rtsp / active             (cameras)
+    ├── station.reboot / p2pConnected                             (HomeBase, standalone cameras)
+    ├── ptz.presetGoto / presetSave / presetDelete                (pan & tilt cameras)
+    └── doorbell.quickResponse / quickResponses                   (doorbells)
 ```
 
 Values are updated live by the SDK's `propertyChanged` announcements. Writes are acknowledged when the
@@ -78,6 +81,37 @@ page plays via MSE/HLS (with sound) or WebRTC.
 - While a stream runs, a still is stored as `snapshot.url` (option *Save a still from the running stream*).
 - ffmpeg: the configured path, else `ffmpeg` on `PATH`, else the bundled `ffmpeg-static`.
 
+### Station, PTZ presets, quick responses
+
+- `station.reboot` restarts a HomeBase or a camera that is its own station (offline for a minute or two).
+  `station.p2pConnected` shows whether a P2P session is open — sessions open on demand and close when idle, so
+  `false` is the normal resting state, not a fault.
+- `ptz.presetGoto` / `presetSave` / `presetDelete` take a preset id; `ptz.presets` lists stored presets where the
+  camera can be asked for them.
+- `doorbell.quickResponse` plays a quick response by voice id; `doorbell.quickResponsesRefresh` fills
+  `doorbell.quickResponses` with the available ones where the doorbell supports reading them.
+
+### Scripts: `listActions` / `callAction`
+
+Every action a device offers — including those the SDK does not describe generically (e.g. `ptz.rotate`,
+`ptz.preset.list`, `smartLight.setEffect`) — can be called from scripts:
+
+```js
+sendTo("eufy-next.0", "listActions", { sn: "T8410P..." }, (r) => log(JSON.stringify(r.result)));
+sendTo("eufy-next.0", "callAction",
+    { sn: "T8410P...", capability: "ptz", action: "rotate", args: ["left"] },
+    (r) => log(r.error ?? JSON.stringify(r.result)));
+// nested sub-APIs use a dot: action "preset.goto", args [2]
+```
+
+Only actions the device's manifest lists are accepted. Return values come back in `result` (Buffers as base64).
+
+### Livestream over HTTPS
+
+Tab *Livestream* → *Serve the player over HTTPS* with a certificate from the ioBroker system settings. Needed when
+the player is embedded in a visualisation served over HTTPS (browsers block HTTP content there). The adapter then
+also uses the player port + 1 on 127.0.0.1 internally.
+
 ## Requirements
 
 - **Node.js ≥ 24.5.0** (required by the eufy-sdk; older versions log a warning and encrypted camera video may fail)
@@ -99,10 +133,12 @@ The session is stored in the instance data directory, so later restarts log in w
 
 | Option                 | Description                                                                 |
 | ---------------------- | --------------------------------------------------------------------------- |
+| Send 2FA code via      | E-mail (default) or SMS                                                     |
 | Cloud poll interval    | How often cloud-only values are polled (realtime values arrive immediately) |
 | Value cache TTL        | How old a cached value may be before the SDK refreshes it in the background |
 | Reset event states     | `events.*.triggered` is reset to `false` after this many seconds            |
 | Save camera thumbnail  | Store the latest event thumbnail as a file                                  |
+| Snapshot as data URL   | Additionally put the snapshot into `snapshot.dataUrl` for vis image/HTML widgets |
 | ffmpeg path            | Optional; default is `ffmpeg` on `PATH`, else the bundled one               |
 | Ignore devices         | Serial numbers to skip                                                      |
 | Client identity        | Leave empty; a stable random identity is generated per instance             |
@@ -142,6 +178,17 @@ npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 0.3.0 (2026-11-15)
+
+- `station.reboot` and `station.p2pConnected` for HomeBases and standalone cameras
+- PTZ presets: `ptz.presetGoto` / `presetSave` / `presetDelete` (+ `ptz.presets` where readable)
+- Doorbell quick responses: `doorbell.quickResponse` (+ list where readable)
+- `sendTo` commands `listActions` and `callAction` for every action a device offers, including undescribed ones
+- 2FA code via e-mail or SMS (setting)
+- Snapshot additionally as data URL (`snapshot.dataUrl`)
+- Livestream player optionally over HTTPS with an ioBroker certificate
+- Fix: rebuilding a device's objects after it gained capabilities no longer removes `info.stationSn`
 
 ### 0.2.0 (2026-11-15)
 

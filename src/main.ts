@@ -60,6 +60,8 @@ interface DeviceHandle {
     /** Held strongly: the SDK only announces property changes for Device objects someone still holds. */
     dev: Device;
     manifest: DeviceManifestLike;
+    /** The cloud record (station serial etc.), kept for rebuilds. */
+    rec: EufyDevice;
     /** property name → every state showing it (one property can back reads in several capabilities). */
     properties: Map<string, PropertyTarget[]>;
 }
@@ -96,6 +98,8 @@ class EufyNext extends utils.Adapter {
     private go2rtcOpts?: Go2rtcOptions;
     private readonly liveSessions = new Map<string, LiveSession>();
     private ffmpegBin?: string;
+    /** Certificate + key for the HTTPS player, loaded once at start. */
+    private liveCerts?: { cert: string; key: string };
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
         super({ ...options, name: "eufy-next" });
@@ -139,6 +143,10 @@ class EufyNext extends utils.Adapter {
         } catch (e) {
             this.log.error(`Cannot load @mega-yfue/eufy-sdk: ${errText(e)}`);
             return;
+        }
+
+        if (this.config.liveEnabled !== false && this.config.liveHttps) {
+            await this.loadLiveCertificates();
         }
 
         this.eufy = this.createClient(this.sdk);
@@ -231,6 +239,24 @@ class EufyNext extends utils.Adapter {
         });
     }
 
+    /** The ioBroker certificates chosen for the HTTPS player (system.certificates). */
+    private async loadLiveCertificates(): Promise<void> {
+        try {
+            const res = (await this.getCertificatesAsync(
+                this.config.liveCertPublic || undefined,
+                this.config.liveCertPrivate || undefined,
+            )) as unknown as [{ cert?: string; key?: string }?];
+            const certs = res?.[0];
+            if (certs?.cert && certs.key) {
+                this.liveCerts = { cert: certs.cert, key: certs.key };
+                return;
+            }
+            this.log.warn("Livestream HTTPS: no certificate/key found — the player falls back to HTTP");
+        } catch (e) {
+            this.log.warn(`Livestream HTTPS: cannot read certificates (${errText(e)}) — the player falls back to HTTP`);
+        }
+    }
+
     /** ffmpeg to run: the configured path, else one on PATH, else the bundled ffmpeg-static. */
     private ffmpeg(): string | undefined {
         if (this.ffmpegBin !== undefined) {
@@ -262,6 +288,11 @@ class EufyNext extends utils.Adapter {
         return found || undefined;
     }
 
+    /** Where eufy sends the 2FA code: 2 = e-mail (default), 1 = SMS. */
+    private messageType(): number {
+        return this.config.verifyMethod === "sms" ? 1 : 2;
+    }
+
     private async startLogin(): Promise<void> {
         if (!this.eufy || this.loginInFlight) {
             return;
@@ -269,7 +300,7 @@ class EufyNext extends utils.Adapter {
         this.loginInFlight = true;
         try {
             await this.setLoginStatus("logging_in", "Logging in to the eufy cloud…");
-            await this.handleLoginResult(await this.eufy.login());
+            await this.handleLoginResult(await this.eufy.login({ messageType: this.messageType() }));
         } catch (e) {
             await this.onLoginError(e);
         } finally {
@@ -339,7 +370,7 @@ class EufyNext extends utils.Adapter {
         if (!this.eufy) {
             throw new Error("adapter not ready");
         }
-        const r = await this.eufy.solveCaptcha(answer.trim());
+        const r = await this.eufy.solveCaptcha(answer.trim(), { messageType: this.messageType() });
         await this.handleLoginResult(r);
         return r.status;
     }
@@ -396,6 +427,8 @@ class EufyNext extends utils.Adapter {
         eufy.on("disconnect", () => void this.setStateAsync("info.mqttConnected", false, true));
         eufy.on("pushConnect", () => void this.setStateAsync("info.pushConnected", true, true));
         eufy.on("pushDisconnect", () => void this.setStateAsync("info.pushConnected", false, true));
+        eufy.on("p2pConnect", (stationSn: string) => void this.setP2p(stationSn, true));
+        eufy.on("p2pClose", (stationSn: string) => void this.setP2p(stationSn, false));
 
         eufy.on("propertyChanged", (e) => {
             if (e.deviceSn) {
@@ -543,17 +576,19 @@ class EufyNext extends utils.Adapter {
             oid: sanitizeId(d.sn),
             dev,
             manifest: dev.describe() as unknown as DeviceManifestLike,
+            rec: d,
             properties: new Map(),
         };
         this.devices.set(d.sn, h);
-        await this.buildDeviceTree(h, d);
+        await this.buildDeviceTree(h, true);
         this.log.info(
             `Device ${h.manifest.name} (${h.manifest.modelName}${h.manifest.model ? `, ${h.manifest.model}` : ""}) ` +
                 `ready — capabilities: ${h.manifest.capabilities.join(", ") || "none"}`,
         );
     }
 
-    private async buildDeviceTree(h: DeviceHandle, rec?: EufyDevice): Promise<void> {
+    private async buildDeviceTree(h: DeviceHandle, initial = false): Promise<void> {
+        const rec = h.rec;
         h.manifest = h.dev.describe() as unknown as DeviceManifestLike;
         const m = h.manifest;
         const oid = h.oid;
@@ -583,7 +618,7 @@ class EufyNext extends utils.Adapter {
         }
         for (const [name, common, value] of info) {
             await this.ensureState(`${oid}.info.${name}`, common);
-            if (value !== null && !(name === "available" && rec === undefined)) {
+            if (value !== null && !(name === "available" && !initial)) {
                 await this.setStateAsync(`${oid}.info.${name}`, value, true);
             }
         }
@@ -610,6 +645,9 @@ class EufyNext extends utils.Adapter {
 
         await this.buildSnapshotObjects(h);
         await this.buildLivestreamObjects(h);
+        await this.buildStationObjects(h);
+        await this.buildPtzPresetObjects(h);
+        await this.buildQuickResponseObjects(h);
         await this.removeStaleObjects(h);
     }
 
@@ -730,6 +768,9 @@ class EufyNext extends utils.Adapter {
         await this.ensureChannel(base, "Snapshot");
         await this.ensureState(`${base}.url`, stateDef("Snapshot URL (ioBroker files)", "string", "url"));
         await this.ensureState(`${base}.updated`, stateDef("Snapshot updated", "number", "value.time"));
+        if (this.config.snapshotDataUrl !== false) {
+            await this.ensureState(`${base}.dataUrl`, stateDef("Snapshot as data URL (for <img src>)", "string", "url"));
+        }
         await this.ensureState(`${base}.refreshStored`, {
             ...stateDef("Load latest event thumbnail", "boolean", "button"),
             read: false,
@@ -790,6 +831,158 @@ class EufyNext extends utils.Adapter {
         await this.writeFileAsync(this.namespace, file, img);
         await this.setStateAsync(`${h.oid}.snapshot.url`, `/files/${this.namespace}/${file}`, true);
         await this.setStateAsync(`${h.oid}.snapshot.updated`, Date.now(), true);
+        if (this.config.snapshotDataUrl !== false) {
+            await this.setStateAsync(`${h.oid}.snapshot.dataUrl`, `data:image/jpeg;base64,${img.toString("base64")}`, true);
+        }
+    }
+
+    // ----------------------------------------------------------------------------------------------------
+    // Station: reboot + P2P session, PTZ presets, doorbell quick responses
+    // ----------------------------------------------------------------------------------------------------
+
+    /** A device that is its own station: a HomeBase, or a camera without one. */
+    private isOwnStation(h: DeviceHandle): boolean {
+        return !h.rec.stationSn || h.rec.stationSn === h.sn;
+    }
+
+    private async buildStationObjects(h: DeviceHandle): Promise<void> {
+        if (!this.isOwnStation(h)) {
+            return;
+        }
+        const base = `${h.oid}.station`;
+        await this.ensureChannel(base, "Station");
+        await this.ensureState(
+            `${base}.p2pConnected`,
+            stateDef("P2P session open (opened on demand, closed when idle — not a fault)", "boolean", "indicator.connected"),
+        );
+        // The SDK restarts HomeBases and cameras that are their own station (verified on hardware).
+        if (h.manifest.codec === "station" || h.manifest.codec === "camera") {
+            await this.ensureState(`${base}.reboot`, {
+                ...stateDef("Reboot (offline for a minute or two)", "boolean", "button"),
+                read: false,
+                write: true,
+            });
+            this.writeHandlers.set(`${this.namespace}.${base}.reboot`, async () => {
+                this.log.info(`${h.manifest.name}: rebooting`);
+                await this.eufy?.reboot(h.sn);
+            });
+        }
+    }
+
+    private async setP2p(stationSn: string, open: boolean): Promise<void> {
+        const h = this.devices.get(stationSn);
+        if (h && this.createdObjects.has(`${h.oid}.station.p2pConnected`)) {
+            await this.setStateAsync(`${h.oid}.station.p2pConnected`, open, true);
+        }
+    }
+
+    /** `dev.ptz().preset()` — the preset sub-API, when this camera has one. */
+    private ptzPresets(h: DeviceHandle): Record<string, unknown> | undefined {
+        const ptz = this.capObject(h, "ptz");
+        const fn = ptz?.preset;
+        if (typeof fn !== "function") {
+            return undefined;
+        }
+        try {
+            return (fn as () => Record<string, unknown>).call(ptz);
+        } catch {
+            return undefined;
+        }
+    }
+
+    private async buildPtzPresetObjects(h: DeviceHandle): Promise<void> {
+        const presets = this.ptzPresets(h);
+        if (!presets) {
+            return;
+        }
+        const base = `${h.oid}.ptz`;
+        await this.ensureChannel(base, "Ptz");
+        const verbs: [string, string, string][] = [
+            ["goto", "presetGoto", "Move to preset (id)"],
+            ["save", "presetSave", "Save current position as preset (id)"],
+            ["delete", "presetDelete", "Delete preset (id)"],
+        ];
+        for (const [verb, id, name] of verbs) {
+            if (typeof presets[verb] !== "function") {
+                continue;
+            }
+            await this.ensureState(`${base}.${id}`, { ...stateDef(name, "number", "level"), read: false, write: true });
+            this.writeHandlers.set(`${this.namespace}.${base}.${id}`, async (val) => {
+                await this.callPath(h, "ptz", `preset.${verb}`, [Number(val)]);
+                if (verb !== "goto") {
+                    await this.refreshPresetList(h);
+                }
+            });
+        }
+        if (typeof presets.list === "function") {
+            await this.ensureState(`${base}.presets`, stateDef("Stored presets", "string", "json"));
+            await this.ensureState(`${base}.presetsRefresh`, {
+                ...stateDef("Read stored presets from the camera", "boolean", "button"),
+                read: false,
+                write: true,
+            });
+            this.writeHandlers.set(`${this.namespace}.${base}.presetsRefresh`, () => this.refreshPresetList(h));
+        }
+    }
+
+    private async refreshPresetList(h: DeviceHandle): Promise<void> {
+        if (!this.createdObjects.has(`${h.oid}.ptz.presets`)) {
+            return;
+        }
+        const list = await this.callPath(h, "ptz", "preset.list", []);
+        await this.setStateAsync(`${h.oid}.ptz.presets`, JSON.stringify(list ?? []), true);
+    }
+
+    private async buildQuickResponseObjects(h: DeviceHandle): Promise<void> {
+        const doorbell = this.capObject(h, "doorbell");
+        if (!doorbell || typeof doorbell.playQuickResponse !== "function") {
+            return;
+        }
+        const base = `${h.oid}.doorbell`;
+        await this.ensureChannel(base, "Doorbell");
+        await this.ensureState(`${base}.quickResponse`, {
+            ...stateDef("Play quick response (voice id)", "number", "level"),
+            read: false,
+            write: true,
+        });
+        this.writeHandlers.set(`${this.namespace}.${base}.quickResponse`, async (val) => {
+            await this.callPath(h, "doorbell", "playQuickResponse", [Number(val)]);
+        });
+        if (typeof doorbell.quickResponses === "function") {
+            await this.ensureState(`${base}.quickResponses`, stateDef("Available quick responses", "string", "json"));
+            await this.ensureState(`${base}.quickResponsesRefresh`, {
+                ...stateDef("Read quick responses from the doorbell", "boolean", "button"),
+                read: false,
+                write: true,
+            });
+            this.writeHandlers.set(`${this.namespace}.${base}.quickResponsesRefresh`, async () => {
+                const list = await this.callPath(h, "doorbell", "quickResponses", []);
+                await this.setStateAsync(`${base}.quickResponses`, JSON.stringify(list ?? []), true);
+            });
+        }
+    }
+
+    /**
+     * Call `dev.<capability>().<a>.<b>(...args)`: every segment but the last is a sub-API reached by calling it
+     * without arguments (`preset.goto` → `ptz().preset().goto(id)`).
+     */
+    private async callPath(h: DeviceHandle, capability: string, action: string, args: unknown[]): Promise<unknown> {
+        let target: unknown = this.capObject(h, capability);
+        const segments = action.split(".");
+        for (const seg of segments.slice(0, -1)) {
+            const sub = (target as Record<string, unknown> | undefined)?.[seg];
+            if (typeof sub !== "function") {
+                throw new Error(`${capability}.${action} is not available on ${h.sn}`);
+            }
+            target = await (sub as () => unknown).call(target);
+        }
+        const last = segments[segments.length - 1];
+        const fn = (target as Record<string, unknown> | undefined)?.[last];
+        if (typeof fn !== "function") {
+            throw new Error(`${capability}.${action} is not available on ${h.sn}`);
+        }
+        this.log.debug(`${h.sn}: ${capability}.${action}(${args.map((a) => JSON.stringify(a)).join(", ")})`);
+        return await (fn as (...a: unknown[]) => unknown).apply(target, args);
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -823,6 +1016,7 @@ class EufyNext extends utils.Adapter {
             hostname: this.config.liveHostname?.trim() || detectHostname(),
             rtspUsername: this.config.liveRtspUsername?.trim() || undefined,
             rtspPassword: this.config.liveRtspPassword || undefined,
+            https: this.liveCerts,
         };
         return this.go2rtcOpts;
     }
@@ -1071,6 +1265,14 @@ class EufyNext extends utils.Adapter {
         }
     }
 
+    private deviceFor(sn: unknown): DeviceHandle {
+        const h = typeof sn === "string" ? this.devices.get(sn) : undefined;
+        if (!h) {
+            throw new Error(`unknown device ${String(sn)}`);
+        }
+        return h;
+    }
+
     private async onMessage(obj: ioBroker.Message): Promise<void> {
         if (!obj?.command) {
             return;
@@ -1121,6 +1323,38 @@ class EufyNext extends utils.Adapter {
                     const img = await this.getStateAsync("info.captchaImage");
                     return reply(String(img?.val ?? ""));
                 }
+                case "listActions": {
+                    // What callAction can reach on a device: described and undescribed actions per capability.
+                    const h = this.deviceFor(msg.sn);
+                    return reply({
+                        result: Object.fromEntries(
+                            h.manifest.details
+                                .filter((c) => c.accessor && (c.actions.length || c.undescribedActions.length))
+                                .map((c) => [
+                                    c.accessor,
+                                    {
+                                        described: c.actions.map((a) => ({ name: a.name, form: a.form, args: a.args })),
+                                        undescribed: c.undescribedActions,
+                                    },
+                                ]),
+                        ),
+                    });
+                }
+                case "callAction": {
+                    // Any action of a capability, including those the SDK does not describe (ptz.rotate,
+                    // ptz.preset.list, doorbell.quickResponses, smartLight.setEffect …). Args are positional.
+                    const h = this.deviceFor(msg.sn);
+                    const capability = String(msg.capability ?? "");
+                    const action = String(msg.action ?? "");
+                    const allowed = h.manifest.details.find((c) => c.accessor === capability);
+                    const root = action.split(".")[0];
+                    if (!allowed || ![...allowed.actions.map((a) => a.name), ...allowed.undescribedActions].includes(root)) {
+                        return reply({ error: `${capability}.${root} is not an action of ${h.sn} (see listActions)` });
+                    }
+                    const args = Array.isArray(msg.args) ? (msg.args as unknown[]) : msg.args === undefined ? [] : [msg.args];
+                    const result = await this.callPath(h, capability, action, args);
+                    return reply({ result: toJsonSafe(result) });
+                }
                 default:
                     return reply({ error: `Unknown command ${obj.command}` });
             }
@@ -1167,6 +1401,27 @@ function eventRole(eventName: string): string {
         return "sensor.alarm";
     }
     return "indicator";
+}
+
+/** Make an SDK return value fit a sendTo reply: Buffers become base64, functions are dropped. */
+function toJsonSafe(v: unknown): unknown {
+    if (v === undefined || v === null) {
+        return null;
+    }
+    return JSON.parse(
+        JSON.stringify(v, (_k, x: unknown) => {
+            if (typeof x === "function") {
+                return undefined;
+            }
+            if (typeof x === "bigint") {
+                return Number(x);
+            }
+            if (x && typeof x === "object" && (x as { type?: string }).type === "Buffer" && Array.isArray((x as { data?: unknown }).data)) {
+                return Buffer.from((x as { data: number[] }).data).toString("base64");
+            }
+            return x;
+        }),
+    ) as unknown;
 }
 
 function errText(e: unknown): string {

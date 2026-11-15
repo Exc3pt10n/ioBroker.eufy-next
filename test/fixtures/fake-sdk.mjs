@@ -32,7 +32,7 @@ export class FileSessionStore {
 export class FileFcmStore extends FileSessionStore {}
 
 const SN = "T8420FAKE0001";
-const CAPS = ["light", "battery", "lock", "arming", "camera"];
+const CAPS = ["light", "battery", "lock", "arming", "camera", "ptz", "doorbell"];
 
 /** Annex-B H.264 file → access units (the test encodes it with AUD NAL units as separators). */
 function accessUnits(buf) {
@@ -145,7 +145,8 @@ export class EufyMega extends EventEmitter {
         this.opts = opts;
         record({ type: "construct", countryCode: opts.countryCode, openudid: !!opts.openudid });
     }
-    async login() {
+    async login(opts = {}) {
+        record({ type: "login", messageType: opts.messageType });
         if (this.opts.store.load()) return { status: "ok", session: {} };
         return { status: "2fa", method: "email" };
     }
@@ -165,6 +166,7 @@ export class EufyMega extends EventEmitter {
         if (sn !== SN) throw new Error("unknown");
         this.dev ??= makeDevice(this);
         setTimeout(() => {
+            this.emit("p2pConnect", SN);
             this.dev._report("battery", 55);
             const motion = { deviceSn: SN, eventType: 3101, thumbnailUrl: "https://example.invalid/t.jpg" };
             this.emit("motion", motion);
@@ -174,6 +176,9 @@ export class EufyMega extends EventEmitter {
     }
     deviceState(sn) {
         return { sn, stationSn: sn, lastSeenMs: 1_700_000_000_000 };
+    }
+    async reboot(sn) {
+        record({ type: "reboot", sn });
     }
     async setProperty(sn, name, value) {
         record({ type: "setProperty", sn, name, value });

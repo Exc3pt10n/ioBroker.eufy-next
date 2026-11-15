@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "news": {
+            "0.3.0": {
+                "en": "Station reboot and P2P state, PTZ presets, doorbell quick responses, sendTo callAction/listActions, 2FA via SMS, snapshot as data URL, HTTPS livestream player",
+                "de": "Neustart und P2P-Status der Station, PTZ-Presets, Schnellantworten der Türklingel, sendTo callAction/listActions, 2FA per SMS, Snapshot als Data-URL, HTTPS-Livestream-Player",
+                "ru": "Перезагрузка и состояние P2P станции, предустановки PTZ, быстрые ответы дверного звонка, sendTo callAction/listActions, 2FA по SMS, снимок как data URL, HTTPS-плеер трансляции",
+                "pt": "Reinício e estado P2P da estação, predefinições PTZ, respostas rápidas da campainha, sendTo callAction/listActions, 2FA por SMS, instantâneo como data URL, player de transmissão HTTPS",
+                "nl": "Herstart en P2P-status van het station, PTZ-presets, snelle antwoorden van de deurbel, sendTo callAction/listActions, 2FA via sms, snapshot als data-URL, HTTPS-livestreamspeler",
+                "fr": "Redémarrage et état P2P de la station, préréglages PTZ, réponses rapides de la sonnette, sendTo callAction/listActions, 2FA par SMS, instantané en data URL, lecteur de flux HTTPS",
+                "it": "Riavvio e stato P2P della stazione, preset PTZ, risposte rapide del campanello, sendTo callAction/listActions, 2FA via SMS, istantanea come data URL, player livestream HTTPS",
+                "es": "Reinicio y estado P2P de la estación, posiciones PTZ, respuestas rápidas del timbre, sendTo callAction/listActions, 2FA por SMS, instantánea como data URL, reproductor HTTPS",
+                "pl": "Restart i stan P2P stacji, presety PTZ, szybkie odpowiedzi dzwonka, sendTo callAction/listActions, 2FA przez SMS, zdjęcie jako data URL, odtwarzacz transmisji przez HTTPS",
+                "uk": "Перезавантаження та стан P2P станції, пресети PTZ, швидкі відповіді дверного дзвінка, sendTo callAction/listActions, 2FA через SMS, знімок як data URL, HTTPS-плеєр трансляції",
+                "zh-cn": "基站重启与 P2P 状态、PTZ 预置位、门铃快捷回复、sendTo callAction/listActions、短信 2FA、快照数据 URL、HTTPS 直播播放器"
+            },
             "0.2.0": {
                 "en": "Camera livestream via bundled go2rtc (player URL, RTSP, maximum duration); bundled ffmpeg as fallback",
                 "de": "Kamera-Livestream über mitgeliefertes go2rtc (Player-URL, RTSP, Höchstdauer); mitgeliefertes ffmpeg als Rückfall",
@@ -108,7 +121,12 @@
         "liveMaxDurationSec": 120,
         "liveRtspUsername": "",
         "liveRtspPassword": "",
-        "liveSnapshot": true
+        "liveSnapshot": true,
+        "verifyMethod": "email",
+        "snapshotDataUrl": true,
+        "liveHttps": false,
+        "liveCertPublic": "",
+        "liveCertPrivate": ""
     },
     "objects": [],
     "instanceObjects": [
