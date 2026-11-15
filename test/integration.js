@@ -39,6 +39,7 @@ tests.integration(path.join(__dirname, ".."), {
                     : [];
             const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
             const P = "eufy-next.0.T8420FAKE0001";
+            const LIVE_PORT = 18984;
 
             async function waitFor(fn, what, timeout = 15_000) {
                 const end = Date.now() + timeout;
@@ -51,13 +52,23 @@ tests.integration(path.join(__dirname, ".."), {
             }
 
             it("logs in with 2FA, builds the device tree, handles events and commands", async function () {
-                this.timeout(120_000);
+                this.timeout(180_000);
                 const harness = getHarness();
                 fs.rmSync(logFile, { force: true });
                 // fresh login: drop a session persisted by an earlier run
                 fs.rmSync(path.join(harness["testDir"], "iobroker-data", "eufy-next.0"), { recursive: true, force: true });
                 await harness.changeAdapterConfig("eufy-next", {
-                    native: { email: "test@example.invalid", password: "secret", countryCode: "de", eventResetSec: 0 },
+                    native: {
+                        email: "test@example.invalid",
+                        password: "secret",
+                        countryCode: "de",
+                        eventResetSec: 0,
+                        liveHostname: "127.0.0.1",
+                        liveApiPort: LIVE_PORT,
+                        liveRtspPort: LIVE_PORT + 1,
+                        liveWebrtcPort: LIVE_PORT + 2,
+                        liveMaxDurationSec: 6,
+                    },
                 });
                 // an object an older version generated for a write the device has no evidence for
                 await harness.objects.setObjectAsync(`${P}.light.setObsolete`, {
@@ -65,9 +76,20 @@ tests.integration(path.join(__dirname, ".."), {
                     common: { name: "obsolete", type: "boolean", role: "switch", read: false, write: true },
                     native: {},
                 });
+                // test media for the fake camera: H.264 with AUD separators + 16 kHz mono AAC (ADTS)
+                const { execFileSync } = require("node:child_process");
+                const ffmpeg = require("ffmpeg-static");
+                const h264 = path.join(os.tmpdir(), "eufy-next-test.h264");
+                const aac = path.join(os.tmpdir(), "eufy-next-test.aac");
+                execFileSync(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=15",
+                    "-t", "4", "-c:v", "libx264", "-g", "15", "-pix_fmt", "yuv420p", "-x264-params", "aud=1", "-f", "h264", h264]);
+                execFileSync(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
+                    "-t", "4", "-ac", "1", "-c:a", "aac", "-f", "adts", aac]);
                 await harness.startAdapter({
                     NODE_OPTIONS: `--import=${path.join(__dirname, "fixtures", "sdk-hook.mjs")}`,
                     FAKE_SDK_LOG: logFile,
+                    FAKE_SDK_H264: h264,
+                    FAKE_SDK_AAC: aac,
                 });
                 const st = (id) => harness.states.getStateAsync(id);
 
@@ -121,6 +143,42 @@ tests.integration(path.join(__dirname, ".."), {
                 // still alive and connected after the refused writes
                 await sleep(1000);
                 if ((await st("eufy-next.0.info.connection"))?.val !== true) throw new Error("lost connection");
+
+                // snapshot from the motion event (fake stored thumbnail)
+                await waitFor(async () => (await st(`${P}.snapshot.url`))?.val, "snapshot.url");
+
+                // Livestream: real go2rtc + ffmpeg, fed by the fake camera's H.264/AAC frames.
+                const start = await harness.objects.getObjectAsync(`${P}.livestream.start`);
+                if (!start || start.common.role !== "button.start") throw new Error("livestream.start missing");
+                if ((await st(`${P}.livestream.active`))?.val !== false) throw new Error("livestream active before start");
+                await harness.states.setStateAsync(`${P}.livestream.start`, { val: true, ack: false });
+                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === true, "livestream active", 30_000);
+                const url = (await st(`${P}.livestream.url`)).val;
+                if (url !== `http://127.0.0.1:${LIVE_PORT}/stream.html?src=T8420FAKE0001`) throw new Error(`url ${url}`);
+                if ((await st(`${P}.livestream.rtsp`)).val !== `rtsp://127.0.0.1:${LIVE_PORT + 1}/T8420FAKE0001`) throw new Error("rtsp url");
+
+                const streams = await waitFor(async () => {
+                    const r = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json(), () => undefined);
+                    const medias = r?.T8420FAKE0001?.producers?.flatMap((p) => p.medias || []) || [];
+                    return medias.some((m) => m.includes("H264")) && medias.some((m) => m.includes("MPEG4-GENERIC")) ? medias : undefined;
+                }, "go2rtc producer with H264 + AAC");
+                console.log("go2rtc medias:", JSON.stringify(streams));
+                const frame = Buffer.from(await (await fetch(`http://127.0.0.1:${LIVE_PORT}/api/frame.jpeg?src=T8420FAKE0001`)).arrayBuffer());
+                if (frame[0] !== 0xff || frame[1] !== 0xd8 || frame.length < 1000) throw new Error(`frame.jpeg: ${frame.length} bytes`);
+
+                await harness.states.setStateAsync(`${P}.livestream.stop`, { val: true, ack: false });
+                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === false, "livestream stopped");
+                if ((await st(`${P}.livestream.url`)).val !== "") throw new Error("url not cleared after stop");
+                await waitFor(() => sent().some((e) => e.type === "liveStop"), "camera consumer released");
+
+                // maximum duration (6 s in this test) ends a stream on its own
+                const t0 = Date.now();
+                await harness.states.setStateAsync(`${P}.livestream.start`, { val: true, ack: false });
+                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === true, "second livestream", 30_000);
+                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === false, "stop at maximum duration", 20_000);
+                const took = Date.now() - t0;
+                if (took < 5000) throw new Error(`stopped too early (${took} ms)`);
+                if (sent().filter((e) => e.type === "liveStop").length !== 2) throw new Error("second consumer not released");
             });
         });
     },

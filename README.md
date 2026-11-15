@@ -40,7 +40,8 @@ eufy-next.0
     ├── arming.mode
     ├── events.motion.triggered / lastTriggered / payload
     ├── events.lastEvent
-    └── snapshot.url / updated / refreshStored / refreshLive      (cameras)
+    ├── snapshot.url / updated / refreshStored / refreshLive      (cameras)
+    └── livestream.start / stop / url / rtsp / active             (cameras)
 ```
 
 Values are updated live by the SDK's `propertyChanged` announcements. Writes are acknowledged when the
@@ -52,11 +53,36 @@ For cameras the latest event thumbnail (motion, person, doorbell …) is stored 
 `eufy-next.0/<SERIAL>/snapshot.jpg`; `snapshot.url` holds the path (`/files/eufy-next.0/<SERIAL>/snapshot.jpg`).
 `snapshot.refreshLive` captures a fresh frame — this needs `ffmpeg` and wakes battery cameras, so use it sparingly.
 
+### Livestream
+
+Cameras that can stream get a `livestream` channel:
+
+| State               | Role           | Meaning                                                          |
+| ------------------- | -------------- | ---------------------------------------------------------------- |
+| `livestream.start`  | `button.start` | Start streaming                                                  |
+| `livestream.stop`   | `button.stop`  | Stop streaming                                                   |
+| `livestream.url`    | `url`          | Player page `http://<host>:1984/stream.html?src=<SERIAL>` — only while streaming, otherwise empty |
+| `livestream.rtsp`   | `url`          | `rtsp://<host>:8554/<SERIAL>` — only while streaming             |
+| `livestream.active` | `indicator`    | Stream is running                                                |
+
+The adapter bundles [go2rtc](https://github.com/AlexxIT/go2rtc) as player server and pushes the camera's video
+(copied, never re-encoded) and sound (as AAC) into it with ffmpeg. go2rtc starts with the first stream. The player
+page plays via MSE/HLS (with sound) or WebRTC.
+
+- **Maximum duration** (default 120 s, tab *Livestream*): the stream ends on its own. Battery cameras drain while
+  streaming, so keep it short; there is no automatic restart.
+- **Hostname**: the address put into the URLs. Empty = the host's first network address; set it if the player is
+  opened from another device and that address is wrong.
+- **Ports**: player/API 1984, RTSP 8554, WebRTC 8555 (TCP/UDP). The player port has **no login** — keep it in
+  your home network and never forward it to the internet. RTSP can be protected with user/password.
+- While a stream runs, a still is stored as `snapshot.url` (option *Save a still from the running stream*).
+- ffmpeg: the configured path, else `ffmpeg` on `PATH`, else the bundled `ffmpeg-static`.
+
 ## Requirements
 
 - **Node.js ≥ 24.5.0** (required by the eufy-sdk; older versions log a warning and encrypted camera video may fail)
 - js-controller ≥ 6.0.11, admin ≥ 7.4.10
-- optional: `ffmpeg` for live snapshots
+- `ffmpeg` and `go2rtc` are bundled (ffmpeg-static, go2rtc-static); a system ffmpeg is used if present
 
 ## Configuration
 
@@ -77,7 +103,7 @@ The session is stored in the instance data directory, so later restarts log in w
 | Value cache TTL        | How old a cached value may be before the SDK refreshes it in the background |
 | Reset event states     | `events.*.triggered` is reset to `false` after this many seconds            |
 | Save camera thumbnail  | Store the latest event thumbnail as a file                                  |
-| ffmpeg path            | Only needed for `snapshot.refreshLive`                                      |
+| ffmpeg path            | Optional; default is `ffmpeg` on `PATH`, else the bundled one               |
 | Ignore devices         | Serial numbers to skip                                                      |
 | Client identity        | Leave empty; a stable random identity is generated per instance             |
 | Verbose SDK logging    | Show SDK info/warnings in the ioBroker log (debug level always contains them) |
@@ -106,6 +132,9 @@ npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
    Während der Anmeldung die Einstellungen **nicht speichern**, sonst startet die Instanz neu.
 3. Danach erscheinen alle Geräte unter `eufy-next.0.<Seriennummer>` mit genau den Datenpunkten, die das Gerät
    unterstützt. Ereignisse (Bewegung, Klingel, Person …) liegen unter `events`.
+4. Livestream: `livestream.start` drücken, `livestream.url` enthält dann die Player-Seite (go2rtc, Port 1984). Der
+   Stream endet nach der Höchstdauer (Standard 120 s), weil Akku-Kameras sonst leerlaufen. Den Player-Port nur im
+   Heimnetz nutzen, nicht ins Internet freigeben.
 
 ## Changelog
 
@@ -113,6 +142,13 @@ npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 0.2.0 (2026-11-15)
+
+- Camera livestream: `livestream.start/stop/url/rtsp/active` with a bundled go2rtc player (MSE/HLS/WebRTC, RTSP),
+  video copied, sound as AAC, configurable maximum duration (default 120 s)
+- Still from the running stream as snapshot
+- Bundled ffmpeg (ffmpeg-static) as fallback when no ffmpeg is on the host
 
 ### 0.1.0 (2026-11-15)
 

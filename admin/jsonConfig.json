@@ -4,32 +4,59 @@
     "items": {
         "account": {
             "type": "panel",
-            "label": { "en": "Account", "de": "Konto" },
+            "label": {
+                "en": "Account",
+                "de": "Konto"
+            },
             "items": {
                 "hdrAccount": {
                     "type": "header",
                     "size": 4,
-                    "text": { "en": "eufy account", "de": "eufy-Konto" }
+                    "text": {
+                        "en": "eufy account",
+                        "de": "eufy-Konto"
+                    }
                 },
                 "email": {
                     "type": "text",
-                    "label": { "en": "E-mail", "de": "E-Mail" },
-                    "xs": 12, "sm": 12, "md": 6, "lg": 4,
+                    "label": {
+                        "en": "E-mail",
+                        "de": "E-Mail"
+                    },
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 4,
                     "newLine": true
                 },
                 "password": {
                     "type": "password",
-                    "label": { "en": "Password", "de": "Passwort" },
+                    "label": {
+                        "en": "Password",
+                        "de": "Passwort"
+                    },
                     "repeat": false,
                     "visible": true,
-                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 4
                 },
                 "countryCode": {
                     "type": "text",
-                    "label": { "en": "Country code of the account", "de": "Ländercode des Kontos" },
-                    "help": { "en": "Two letters, e.g. DE, AT, CH, GB, US — selects the cloud region", "de": "Zwei Buchstaben, z. B. DE, AT, CH, GB, US — bestimmt die Cloud-Region" },
+                    "label": {
+                        "en": "Country code of the account",
+                        "de": "Ländercode des Kontos"
+                    },
+                    "help": {
+                        "en": "Two letters, e.g. DE, AT, CH, GB, US — selects the cloud region",
+                        "de": "Zwei Buchstaben, z. B. DE, AT, CH, GB, US — bestimmt die Cloud-Region"
+                    },
                     "maxLength": 2,
-                    "xs": 12, "sm": 6, "md": 3, "lg": 2,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 3,
+                    "lg": 2,
                     "newLine": true
                 },
                 "hint": {
@@ -45,12 +72,18 @@
         },
         "login": {
             "type": "panel",
-            "label": { "en": "Login (2FA / captcha)", "de": "Anmeldung (2FA / Captcha)" },
+            "label": {
+                "en": "Login (2FA / captcha)",
+                "de": "Anmeldung (2FA / Captcha)"
+            },
             "items": {
                 "hdrStatus": {
                     "type": "header",
                     "size": 4,
-                    "text": { "en": "Login status", "de": "Anmeldestatus" }
+                    "text": {
+                        "en": "Login status",
+                        "de": "Anmeldestatus"
+                    }
                 },
                 "statusText": {
                     "type": "staticText",
@@ -72,29 +105,47 @@
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": { "en": "Verification code (2FA)", "de": "Bestätigungscode (2FA)" }
+                    "text": {
+                        "en": "Verification code (2FA)",
+                        "de": "Bestätigungscode (2FA)"
+                    }
                 },
                 "_verifyCode": {
                     "type": "text",
-                    "label": { "en": "Code from e-mail / SMS", "de": "Code aus E-Mail / SMS" },
+                    "label": {
+                        "en": "Code from e-mail / SMS",
+                        "de": "Code aus E-Mail / SMS"
+                    },
                     "doNotSave": true,
                     "newLine": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "btnCode": {
                     "type": "sendTo",
-                    "label": { "en": "Submit code", "de": "Code senden" },
+                    "label": {
+                        "en": "Submit code",
+                        "de": "Code senden"
+                    },
                     "command": "verifyCode",
                     "jsonData": "{\"code\": \"${data._verifyCode}\"}",
                     "variant": "contained",
                     "showProcess": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "hdrCaptcha": {
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": { "en": "Captcha (only when requested)", "de": "Captcha (nur wenn angefordert)" }
+                    "text": {
+                        "en": "Captcha (only when requested)",
+                        "de": "Captcha (nur wenn angefordert)"
+                    }
                 },
                 "captchaImg": {
                     "type": "imageSendTo",
@@ -105,93 +156,321 @@
                 },
                 "_captchaAnswer": {
                     "type": "text",
-                    "label": { "en": "Captcha characters", "de": "Captcha-Zeichen" },
+                    "label": {
+                        "en": "Captcha characters",
+                        "de": "Captcha-Zeichen"
+                    },
                     "doNotSave": true,
                     "newLine": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "btnCaptcha": {
                     "type": "sendTo",
-                    "label": { "en": "Submit captcha", "de": "Captcha senden" },
+                    "label": {
+                        "en": "Submit captcha",
+                        "de": "Captcha senden"
+                    },
                     "command": "captcha",
                     "jsonData": "{\"answer\": \"${data._captchaAnswer}\"}",
                     "variant": "contained",
                     "showProcess": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "hdrRelogin": {
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": { "en": "Reset session", "de": "Sitzung zurücksetzen" }
+                    "text": {
+                        "en": "Reset session",
+                        "de": "Sitzung zurücksetzen"
+                    }
                 },
                 "btnRelogin": {
                     "type": "sendTo",
-                    "label": { "en": "Discard session and log in again", "de": "Sitzung verwerfen und neu anmelden" },
+                    "label": {
+                        "en": "Discard session and log in again",
+                        "de": "Sitzung verwerfen und neu anmelden"
+                    },
                     "command": "relogin",
                     "confirm": {
-                        "text": { "en": "This usually requires a new 2FA code. Continue?", "de": "Dafür ist meist ein neuer 2FA-Code nötig. Fortfahren?" },
-                        "title": { "en": "Log in again", "de": "Neu anmelden" },
-                        "ok": { "en": "Yes", "de": "Ja" },
-                        "cancel": { "en": "Cancel", "de": "Abbrechen" }
+                        "text": {
+                            "en": "This usually requires a new 2FA code. Continue?",
+                            "de": "Dafür ist meist ein neuer 2FA-Code nötig. Fortfahren?"
+                        },
+                        "title": {
+                            "en": "Log in again",
+                            "de": "Neu anmelden"
+                        },
+                        "ok": {
+                            "en": "Yes",
+                            "de": "Ja"
+                        },
+                        "cancel": {
+                            "en": "Cancel",
+                            "de": "Abbrechen"
+                        }
                     },
                     "newLine": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
+                }
+            }
+        },
+        "livestream": {
+            "type": "panel",
+            "label": {
+                "en": "Livestream",
+                "de": "Livestream"
+            },
+            "items": {
+                "liveInfo": {
+                    "type": "staticText",
+                    "xs": 12,
+                    "text": {
+                        "en": "Pressing <serial>.livestream.start pulls the camera's stream through ffmpeg into a go2rtc player (bundled). livestream.url then holds the player page (MSE/HLS/WebRTC, with sound). The stream stops after the maximum duration — battery cameras drain while streaming.",
+                        "de": "Ein Druck auf <Seriennummer>.livestream.start holt den Kamerastream per ffmpeg in einen go2rtc-Player (mitgeliefert). livestream.url enthält dann die Player-Seite (MSE/HLS/WebRTC, mit Ton). Nach der Höchstdauer endet der Stream — Akku-Kameras entladen sich beim Streamen."
+                    }
+                },
+                "liveEnabled": {
+                    "type": "checkbox",
+                    "newLine": true,
+                    "xs": 12,
+                    "label": {
+                        "en": "Offer livestreams for cameras",
+                        "de": "Livestreams für Kameras anbieten"
+                    }
+                },
+                "liveHostname": {
+                    "type": "text",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 4,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "Hostname / IP of the ioBroker host for player URLs",
+                        "de": "Hostname / IP des ioBroker-Hosts für Player-URLs"
+                    },
+                    "help": {
+                        "en": "Empty = first network address of the host",
+                        "de": "Leer = erste Netzwerkadresse des Hosts"
+                    }
+                },
+                "liveMaxDurationSec": {
+                    "type": "number",
+                    "min": 0,
+                    "max": 3600,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "Maximum duration (seconds, 0 = unlimited)",
+                        "de": "Höchstdauer (Sekunden, 0 = unbegrenzt)"
+                    }
+                },
+                "liveApiPort": {
+                    "type": "port",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 4,
+                    "md": 3,
+                    "lg": 2,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "Player / API port",
+                        "de": "Player- / API-Port"
+                    }
+                },
+                "liveRtspPort": {
+                    "type": "port",
+                    "xs": 12,
+                    "sm": 4,
+                    "md": 3,
+                    "lg": 2,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "RTSP port",
+                        "de": "RTSP-Port"
+                    }
+                },
+                "liveWebrtcPort": {
+                    "type": "port",
+                    "xs": 12,
+                    "sm": 4,
+                    "md": 3,
+                    "lg": 2,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "WebRTC port",
+                        "de": "WebRTC-Port"
+                    }
+                },
+                "liveRtspUsername": {
+                    "type": "text",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "RTSP user (optional)",
+                        "de": "RTSP-Benutzer (optional)"
+                    }
+                },
+                "liveRtspPassword": {
+                    "type": "password",
+                    "repeat": false,
+                    "visible": true,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "RTSP password",
+                        "de": "RTSP-Kennwort"
+                    }
+                },
+                "liveSnapshot": {
+                    "type": "checkbox",
+                    "newLine": true,
+                    "xs": 12,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "Save a still from the running stream as snapshot",
+                        "de": "Standbild aus dem laufenden Stream als Snapshot speichern"
+                    }
+                },
+                "liveSecurity": {
+                    "type": "staticText",
+                    "newLine": true,
+                    "xs": 12,
+                    "text": {
+                        "en": "The player port has no login. Only use it in your home network — do not forward these ports to the internet.",
+                        "de": "Der Player-Port hat keine Anmeldung. Nur im Heimnetz verwenden — diese Ports nicht ins Internet weiterleiten."
+                    }
                 }
             }
         },
         "options": {
             "type": "panel",
-            "label": { "en": "Options", "de": "Optionen" },
+            "label": {
+                "en": "Options",
+                "de": "Optionen"
+            },
             "items": {
                 "pollIntervalMin": {
                     "type": "number",
-                    "label": { "en": "Cloud poll interval (minutes)", "de": "Cloud-Abfrageintervall (Minuten)" },
-                    "help": { "en": "Realtime events arrive via push/MQTT/P2P anyway; the poll catches values that are only reported to the cloud.", "de": "Echtzeit-Ereignisse kommen ohnehin per Push/MQTT/P2P; die Abfrage holt Werte, die nur an die Cloud gemeldet werden." },
-                    "min": 1, "max": 120,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "label": {
+                        "en": "Cloud poll interval (minutes)",
+                        "de": "Cloud-Abfrageintervall (Minuten)"
+                    },
+                    "help": {
+                        "en": "Realtime events arrive via push/MQTT/P2P anyway; the poll catches values that are only reported to the cloud.",
+                        "de": "Echtzeit-Ereignisse kommen ohnehin per Push/MQTT/P2P; die Abfrage holt Werte, die nur an die Cloud gemeldet werden."
+                    },
+                    "min": 1,
+                    "max": 120,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "cacheTtlSec": {
                     "type": "number",
-                    "label": { "en": "Value cache TTL (seconds)", "de": "Werte-Cache-Dauer (Sekunden)" },
-                    "min": 5, "max": 3600,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "label": {
+                        "en": "Value cache TTL (seconds)",
+                        "de": "Werte-Cache-Dauer (Sekunden)"
+                    },
+                    "min": 5,
+                    "max": 3600,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "eventResetSec": {
                     "type": "number",
-                    "label": { "en": "Reset event states after (seconds, 0 = never)", "de": "Ereignis-Datenpunkte zurücksetzen nach (Sekunden, 0 = nie)" },
-                    "min": 0, "max": 3600,
+                    "label": {
+                        "en": "Reset event states after (seconds, 0 = never)",
+                        "de": "Ereignis-Datenpunkte zurücksetzen nach (Sekunden, 0 = nie)"
+                    },
+                    "min": 0,
+                    "max": 3600,
                     "newLine": true,
-                    "xs": 12, "sm": 6, "md": 4, "lg": 3
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3
                 },
                 "saveSnapshots": {
                     "type": "checkbox",
-                    "label": { "en": "Save camera thumbnail on motion/person/doorbell events", "de": "Kamera-Vorschaubild bei Bewegung/Person/Klingel speichern" },
+                    "label": {
+                        "en": "Save camera thumbnail on motion/person/doorbell events",
+                        "de": "Kamera-Vorschaubild bei Bewegung/Person/Klingel speichern"
+                    },
                     "newLine": true,
-                    "xs": 12, "sm": 12, "md": 8
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 8
                 },
                 "ffmpegPath": {
                     "type": "text",
-                    "label": { "en": "Path to ffmpeg (optional, only for live snapshots)", "de": "Pfad zu ffmpeg (optional, nur für Live-Snapshots)" },
+                    "label": {
+                        "en": "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)",
+                        "de": "Pfad zu ffmpeg (optional; Standard: ffmpeg aus PATH, sonst mitgeliefert)"
+                    },
                     "newLine": true,
-                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 4
                 },
                 "excludeDevices": {
                     "type": "text",
-                    "label": { "en": "Ignore devices (serial numbers, comma separated)", "de": "Geräte ignorieren (Seriennummern, kommagetrennt)" },
+                    "label": {
+                        "en": "Ignore devices (serial numbers, comma separated)",
+                        "de": "Geräte ignorieren (Seriennummern, kommagetrennt)"
+                    },
                     "newLine": true,
-                    "xs": 12, "sm": 12, "md": 8
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 8
                 },
                 "openudid": {
                     "type": "text",
-                    "label": { "en": "Client identity (openudid, optional)", "de": "Client-Kennung (openudid, optional)" },
-                    "help": { "en": "Leave empty — a stable random identity is generated per instance.", "de": "Leer lassen — pro Instanz wird eine stabile Zufallskennung erzeugt." },
+                    "label": {
+                        "en": "Client identity (openudid, optional)",
+                        "de": "Client-Kennung (openudid, optional)"
+                    },
+                    "help": {
+                        "en": "Leave empty — a stable random identity is generated per instance.",
+                        "de": "Leer lassen — pro Instanz wird eine stabile Zufallskennung erzeugt."
+                    },
                     "newLine": true,
-                    "xs": 12, "sm": 12, "md": 6, "lg": 4
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 6,
+                    "lg": 4
                 },
                 "sdkDebug": {
                     "type": "checkbox",
-                    "label": { "en": "Verbose SDK logging (info/warn of the SDK in the ioBroker log)", "de": "Ausführliches SDK-Logging (Info/Warnungen des SDK im ioBroker-Log)" },
+                    "label": {
+                        "en": "Verbose SDK logging (info/warn of the SDK in the ioBroker log)",
+                        "de": "Ausführliches SDK-Logging (Info/Warnungen des SDK im ioBroker-Log)"
+                    },
                     "newLine": true,
                     "xs": 12
                 }

@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "news": {
+            "0.2.0": {
+                "en": "Camera livestream via bundled go2rtc (player URL, RTSP, maximum duration); bundled ffmpeg as fallback",
+                "de": "Kamera-Livestream über mitgeliefertes go2rtc (Player-URL, RTSP, Höchstdauer); mitgeliefertes ffmpeg als Rückfall",
+                "ru": "Прямая трансляция с камеры через встроенный go2rtc (URL плеера, RTSP, максимальная длительность); встроенный ffmpeg как запасной вариант",
+                "pt": "Transmissão ao vivo da câmera via go2rtc incluído (URL do player, RTSP, duração máxima); ffmpeg incluído como alternativa",
+                "nl": "Camera-livestream via meegeleverde go2rtc (speler-URL, RTSP, maximale duur); meegeleverde ffmpeg als terugval",
+                "fr": "Diffusion en direct de la caméra via go2rtc intégré (URL du lecteur, RTSP, durée maximale) ; ffmpeg intégré en secours",
+                "it": "Livestream della telecamera tramite go2rtc incluso (URL del player, RTSP, durata massima); ffmpeg incluso come riserva",
+                "es": "Transmisión en directo de la cámara mediante go2rtc incluido (URL del reproductor, RTSP, duración máxima); ffmpeg incluido como alternativa",
+                "pl": "Transmisja na żywo z kamery przez dołączony go2rtc (adres URL odtwarzacza, RTSP, maksymalny czas); dołączony ffmpeg jako rezerwa",
+                "uk": "Пряма трансляція з камери через вбудований go2rtc (URL плеєра, RTSP, максимальна тривалість); вбудований ffmpeg як резервний варіант",
+                "zh-cn": "通过内置 go2rtc 提供摄像头直播（播放器 URL、RTSP、最长时长）；内置 ffmpeg 作为备用"
+            },
             "0.1.0": {
                 "en": "Initial release based on @mega-yfue/eufy-sdk",
                 "de": "Erste Version auf Basis von @mega-yfue/eufy-sdk",
@@ -68,10 +81,12 @@
         ]
     },
     "encryptedNative": [
-        "password"
+        "password",
+        "liveRtspPassword"
     ],
     "protectedNative": [
-        "password"
+        "password",
+        "liveRtspPassword"
     ],
     "native": {
         "email": "",
@@ -84,7 +99,16 @@
         "saveSnapshots": true,
         "ffmpegPath": "",
         "excludeDevices": "",
-        "sdkDebug": false
+        "sdkDebug": false,
+        "liveEnabled": true,
+        "liveHostname": "",
+        "liveApiPort": 1984,
+        "liveRtspPort": 8554,
+        "liveWebrtcPort": 8555,
+        "liveMaxDurationSec": 120,
+        "liveRtspUsername": "",
+        "liveRtspPassword": "",
+        "liveSnapshot": true
     },
     "objects": [],
     "instanceObjects": [

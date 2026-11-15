@@ -14,14 +14,21 @@ Der Adapter ist TypeScript, kompiliert nach CommonJS (`build/`) und lädt das SD
 - SDK 0.5.x beschreibt einen Schreibbefehl als `stateful` (mit `reflects`) nur, wenn das Gerät den Wert meldet;
   sonst als `momentary` ohne `reflects` (Blind-Schreiben, z. B. `camera.setImageFlipped` an der T8142). Der
   Adapter legt dafür einen Nur-Schreib-Datenpunkt an — das ist so gewollt, nicht als Fehler „korrigieren“.
+- `src/lib/livestream.ts`: go2rtc (go2rtc-static) als Player-Server, ffmpeg pusht `camera.live()` per RTSP hinein.
+  go2rtc nimmt einen Push nur für Streams an, die beim Start konfiguriert waren (`register()` vorab, sonst Neustart).
+  Video wird kopiert; Ton wird immer nach AAC kodiert, weil der RTSP-Muxer die AAC-Konfiguration schon im Header
+  braucht, die ein ADTS-Rohstrom erst später liefert. ffmpeg-Rohstrom-Eingang nutzt Wanduhr-Zeitstempel und
+  braucht deshalb Frames in Echtzeit (Tests spielen Dateien im 15-fps-Takt ab).
 - Das SDK verweigert unverifizierte Schreibpfade mit einer Exception — das ist gewollt; der Adapter loggt eine
   Warnung und läuft weiter.
 
 ## Tests
 
-- `npm test` = Unit (`test/mapping.test.mjs`, läuft über alle Capabilities des installierten SDK) + Paket-Test.
+- `npm test` = Unit (`test/mapping.test.mjs` über alle Capabilities des installierten SDK, `test/livestream.test.mjs`)
+  + Paket-Test.
 - `npm run test:integration`: echter js-controller; zweite Suite ersetzt das SDK per Module-Hook durch
-  `test/fixtures/fake-sdk.mjs` (Fake-Cloud, echte SDK-Capability-Objekte). Braucht Node 24.
+  `test/fixtures/fake-sdk.mjs` (Fake-Cloud, echte SDK-Capability-Objekte; die Fake-Kamera spielt mit ffmpeg-static
+  erzeugtes H.264/AAC als Livestream ab, go2rtc und ffmpeg laufen echt). Braucht Node 24.
 
 ## Versionierung
 
