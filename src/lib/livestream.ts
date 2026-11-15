@@ -27,6 +27,13 @@ export interface Go2rtcOptions {
     hostname: string;
     rtspUsername?: string;
     rtspPassword?: string;
+    /** Serve the player over HTTPS on `apiPort`; the adapter itself then talks to go2rtc on loopback. */
+    https?: { cert: string; key: string };
+}
+
+/** Port the adapter reaches go2rtc's API on: `apiPort`, or the loopback-only port next to it under HTTPS. */
+export function internalApiPort(o: Go2rtcOptions): number {
+    return o.https ? o.apiPort + 1 : o.apiPort;
 }
 
 /** The go2rtc configuration (passed as inline JSON via `-config`). */
@@ -37,7 +44,14 @@ export function go2rtcConfig(o: Go2rtcOptions, streams: readonly string[]): Reco
         rtsp.password = o.rtspPassword ?? "";
     }
     return {
-        api: { listen: `:${o.apiPort}` },
+        api: o.https
+            ? {
+                  listen: `127.0.0.1:${internalApiPort(o)}`,
+                  tls_listen: `:${o.apiPort}`,
+                  tls_cert: o.https.cert,
+                  tls_key: o.https.key,
+              }
+            : { listen: `:${o.apiPort}` },
         rtsp,
         webrtc: { listen: `:${o.webrtcPort}`, candidates: [`${o.hostname}:${o.webrtcPort}`, `stun:${o.webrtcPort}`] },
         ffmpeg: { bin: o.ffmpeg },
@@ -59,7 +73,7 @@ export function pushUrl(o: Go2rtcOptions, stream: string): string {
 export function playerUrls(o: Go2rtcOptions, stream: string): { url: string; rtsp: string } {
     const src = encodeURIComponent(stream);
     return {
-        url: `http://${o.hostname}:${o.apiPort}/stream.html?src=${src}`,
+        url: `${o.https ? "https" : "http"}://${o.hostname}:${o.apiPort}/stream.html?src=${src}`,
         rtsp: `rtsp://${o.hostname}:${o.rtspPort}/${src}`,
     };
 }
@@ -153,7 +167,9 @@ export class Go2rtcServer {
     private async start(): Promise<void> {
         this.configured = new Set(this.streams);
         const config = JSON.stringify(go2rtcConfig(this.opts, [...this.configured]));
-        this.log.info(`Starting go2rtc (player port ${this.opts.apiPort}, RTSP ${this.opts.rtspPort})`);
+        this.log.info(
+            `Starting go2rtc (player port ${this.opts.apiPort}${this.opts.https ? " HTTPS" : ""}, RTSP ${this.opts.rtspPort})`,
+        );
         const proc = spawn(this.opts.binary, ["-config", config], { stdio: ["ignore", "pipe", "pipe"] });
         this.proc = proc;
         const onLine = (b: Buffer): void => {
@@ -187,7 +203,10 @@ export class Go2rtcServer {
 
     /** Call go2rtc's API on loopback. */
     public async api(path: string, method = "GET"): Promise<Response> {
-        const res = await fetch(`http://127.0.0.1:${this.opts.apiPort}${path}`, { method, signal: AbortSignal.timeout(5000) });
+        const res = await fetch(`http://127.0.0.1:${internalApiPort(this.opts)}${path}`, {
+            method,
+            signal: AbortSignal.timeout(5000),
+        });
         if (!res.ok) {
             throw new Error(`go2rtc ${method} ${path}: HTTP ${res.status}`);
         }

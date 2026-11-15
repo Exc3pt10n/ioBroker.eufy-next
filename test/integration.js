@@ -144,8 +144,38 @@ tests.integration(path.join(__dirname, ".."), {
                 await sleep(1000);
                 if ((await st("eufy-next.0.info.connection"))?.val !== true) throw new Error("lost connection");
 
-                // snapshot from the motion event (fake stored thumbnail)
+                // snapshot from the motion event (fake stored thumbnail), also as data URL
                 await waitFor(async () => (await st(`${P}.snapshot.url`))?.val, "snapshot.url");
+                await waitFor(async () => String((await st(`${P}.snapshot.dataUrl`))?.val ?? "").startsWith("data:image/jpeg;base64,/9j/"), "snapshot.dataUrl");
+
+                // 2FA code requested by e-mail (default)
+                if (!sent().some((e) => e.type === "login" && e.messageType === 2)) throw new Error("login without messageType 2");
+
+                // station: P2P session state + reboot (the fake camera is its own station)
+                await waitFor(async () => (await st(`${P}.station.p2pConnected`))?.val === true, "station.p2pConnected");
+                await harness.states.setStateAsync(`${P}.station.reboot`, { val: true, ack: false });
+                await waitFor(() => sent().some((e) => e.type === "reboot" && e.sn === "T8420FAKE0001"), "reboot call");
+
+                // PTZ presets through the SDK's real preset sub-API (6032 = goto preset)
+                const before = sent().length;
+                await harness.states.setStateAsync(`${P}.ptz.presetGoto`, { val: 2, ack: false });
+                await waitFor(() => sent().slice(before).some((e) => e.type === "command" && e.cmd.param === 6032 && e.cmd.data.value === 2), "preset goto command");
+                if (await harness.objects.getObjectAsync(`${P}.ptz.presets`)) throw new Error("ptz.presets without a list() API");
+                if (!(await harness.objects.getObjectAsync(`${P}.doorbell.quickResponse`))) throw new Error("doorbell.quickResponse missing");
+
+                // sendTo: listActions + callAction (nested sub-API path), and refusal of a non-action
+                const sendTo = (command, message) =>
+                    new Promise((resolve) => harness.sendTo("eufy-next.0", command, message, resolve));
+                const list = await sendTo("listActions", { sn: "T8420FAKE0001" });
+                if (!list.result?.ptz?.described?.some((a) => a.name === "setRotationSpeed")) throw new Error(`listActions: ${JSON.stringify(list)}`);
+                const ptzActions = [...list.result.ptz.described.map((a) => a.name), ...list.result.ptz.undescribed];
+                if (!ptzActions.includes("preset")) throw new Error("listActions: preset missing");
+                const n = sent().length;
+                const res = await sendTo("callAction", { sn: "T8420FAKE0001", capability: "ptz", action: "preset.save", args: [3] });
+                if (res.error) throw new Error(`callAction: ${res.error}`);
+                await waitFor(() => sent().slice(n).some((e) => e.type === "command"), "preset save command");
+                const bad = await sendTo("callAction", { sn: "T8420FAKE0001", capability: "ptz", action: "constructor" });
+                if (!bad.error) throw new Error("callAction accepted a non-action");
 
                 // Livestream: real go2rtc + ffmpeg, fed by the fake camera's H.264/AAC frames.
                 const start = await harness.objects.getObjectAsync(`${P}.livestream.start`);

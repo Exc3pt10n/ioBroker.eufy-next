@@ -22,6 +22,11 @@ declare global {
             liveRtspUsername: string;
             liveRtspPassword: string;
             liveSnapshot: boolean;
+            liveHttps: boolean;
+            liveCertPublic: string;
+            liveCertPrivate: string;
+            verifyMethod: "email" | "sms";
+            snapshotDataUrl: boolean;
         }
     }
 }

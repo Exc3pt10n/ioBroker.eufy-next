@@ -59,6 +59,33 @@
                     "lg": 2,
                     "newLine": true
                 },
+                "verifyMethod": {
+                    "type": "select",
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 3,
+                    "lg": 2,
+                    "label": {
+                        "en": "Send 2FA code via",
+                        "de": "2FA-Code senden per"
+                    },
+                    "options": [
+                        {
+                            "value": "email",
+                            "label": {
+                                "en": "E-mail",
+                                "de": "E-Mail"
+                            }
+                        },
+                        {
+                            "value": "sms",
+                            "label": {
+                                "en": "SMS",
+                                "de": "SMS"
+                            }
+                        }
+                    ]
+                },
                 "hint": {
                     "type": "staticText",
                     "newLine": true,
@@ -353,6 +380,53 @@
                         "de": "Standbild aus dem laufenden Stream als Snapshot speichern"
                     }
                 },
+                "liveHttps": {
+                    "type": "checkbox",
+                    "newLine": true,
+                    "xs": 12,
+                    "disabled": "!data.liveEnabled",
+                    "label": {
+                        "en": "Serve the player over HTTPS (needed when embedded in an HTTPS visualisation)",
+                        "de": "Player per HTTPS ausliefern (nötig bei Einbettung in eine HTTPS-Visualisierung)"
+                    }
+                },
+                "liveCertPublic": {
+                    "type": "certificate",
+                    "certType": "public",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3,
+                    "hidden": "!data.liveHttps",
+                    "label": {
+                        "en": "Public certificate",
+                        "de": "Öffentliches Zertifikat"
+                    }
+                },
+                "liveCertPrivate": {
+                    "type": "certificate",
+                    "certType": "private",
+                    "xs": 12,
+                    "sm": 6,
+                    "md": 4,
+                    "lg": 3,
+                    "hidden": "!data.liveHttps",
+                    "label": {
+                        "en": "Private key",
+                        "de": "Privater Schlüssel"
+                    }
+                },
+                "liveHttpsInfo": {
+                    "type": "staticText",
+                    "newLine": true,
+                    "xs": 12,
+                    "hidden": "!data.liveHttps",
+                    "text": {
+                        "en": "Certificates come from the ioBroker system settings (Certificates). With HTTPS the adapter additionally uses the player port + 1 on 127.0.0.1 internally.",
+                        "de": "Die Zertifikate kommen aus den ioBroker-Systemeinstellungen (Zertifikate). Mit HTTPS nutzt der Adapter intern zusätzlich Player-Port + 1 auf 127.0.0.1."
+                    }
+                },
                 "liveSecurity": {
                     "type": "staticText",
                     "newLine": true,
@@ -425,6 +499,17 @@
                     "xs": 12,
                     "sm": 12,
                     "md": 8
+                },
+                "snapshotDataUrl": {
+                    "type": "checkbox",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 8,
+                    "label": {
+                        "en": "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)",
+                        "de": "Snapshot zusätzlich als Data-URL bereitstellen (snapshot.dataUrl, für vis-Bild-/HTML-Widgets)"
+                    }
                 },
                 "ffmpegPath": {
                     "type": "text",
