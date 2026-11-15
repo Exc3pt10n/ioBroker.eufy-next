@@ -87,7 +87,8 @@ The session is stored in the instance data directory, so later restarts log in w
 ```bash
 npm install
 npm run build
-npm test          # unit + package + integration (needs Node.js >= 24.5)
+npm test                  # unit + package tests
+npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
 ```
 
 - `test/mapping.test.mjs` runs the manifest mapping over a synthetic device that has **every** capability the

@@ -5,7 +5,16 @@
         "news": {
             "0.1.0": {
                 "en": "Initial release based on @mega-yfue/eufy-sdk",
-                "de": "Erste Version auf Basis von @mega-yfue/eufy-sdk"
+                "de": "Erste Version auf Basis von @mega-yfue/eufy-sdk",
+                "ru": "Первый выпуск на основе @mega-yfue/eufy-sdk",
+                "pt": "Versão inicial baseada em @mega-yfue/eufy-sdk",
+                "nl": "Eerste versie gebaseerd op @mega-yfue/eufy-sdk",
+                "fr": "Première version basée sur @mega-yfue/eufy-sdk",
+                "it": "Prima versione basata su @mega-yfue/eufy-sdk",
+                "es": "Versión inicial basada en @mega-yfue/eufy-sdk",
+                "pl": "Pierwsze wydanie oparte na @mega-yfue/eufy-sdk",
+                "uk": "Перший випуск на основі @mega-yfue/eufy-sdk",
+                "zh-cn": "基于 @mega-yfue/eufy-sdk 的首个版本"
             }
         },
         "titleLang": {
@@ -16,8 +25,18 @@
             "en": "Anker eufy cameras, doorbells, locks, sensors, vacuums and lights via the eufy v6 cloud (eufy-sdk)",
             "de": "Anker eufy Kameras, Türklingeln, Schlösser, Sensoren, Saugroboter und Lampen über die eufy v6 Cloud (eufy-sdk)"
         },
-        "authors": ["Exc3pt10n"],
-        "keywords": ["eufy", "anker", "camera", "doorbell", "security", "vacuum", "lock"],
+        "authors": [
+            "Exc3pt10n"
+        ],
+        "keywords": [
+            "eufy",
+            "anker",
+            "camera",
+            "doorbell",
+            "security",
+            "vacuum",
+            "lock"
+        ],
         "licenseInformation": {
             "type": "free",
             "license": "MIT"
@@ -48,8 +67,12 @@
             }
         ]
     },
-    "encryptedNative": ["password"],
-    "protectedNative": ["password"],
+    "encryptedNative": [
+        "password"
+    ],
+    "protectedNative": [
+        "password"
+    ],
     "native": {
         "email": "",
         "password": "",
@@ -68,7 +91,9 @@
         {
             "_id": "info",
             "type": "channel",
-            "common": { "name": "Information" },
+            "common": {
+                "name": "Information"
+            },
             "native": {}
         },
         {
@@ -160,7 +185,9 @@
         {
             "_id": "auth",
             "type": "channel",
-            "common": { "name": "Login (2FA / captcha)" },
+            "common": {
+                "name": "Login (2FA / captcha)"
+            },
             "native": {}
         },
         {

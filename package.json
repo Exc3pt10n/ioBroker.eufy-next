@@ -41,8 +41,9 @@
     "check": "tsc --noEmit",
     "test:unit": "node --test test/*.test.mjs",
     "test:package": "mocha test/package.js --exit",
-    "test": "npm run build && npm run test:unit && npm run test:package && npm run test:integration",
-    "test:integration": "mocha test/integration.js --exit"
+    "test": "npm run test:unit && npm run test:package",
+    "test:integration": "mocha test/integration.js --exit",
+    "prepare": "npm run build"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.2.3",
