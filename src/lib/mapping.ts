@@ -295,14 +295,27 @@ export type ActionPlan =
     /** Not auto-offerable (arguments not stated by the SDK). */
     | { kind: "skip"; action: ActionDescriptorLike };
 
+/**
+ * Media calls return their result (a JPEG, an mp4) instead of changing device state; a button would throw that
+ * away. Snapshots are handled by the adapter's own `snapshot` channel instead.
+ */
+const MEDIA_ACTIONS = new Set(["snapshotStored", "snapshotLive", "record", "recordFragments", "live", "openReadable"]);
+
 /** Decide how each action of a capability is surfaced. */
 export function planAction(cap: CapabilityDescriptorLike, a: ActionDescriptorLike): ActionPlan {
-    if (!a.args) {
+    if (!a.args || MEDIA_ACTIONS.has(a.name)) {
         return { kind: "skip", action: a };
     }
     const required = a.args.filter((x) => !x.optional);
-    if (a.form === "stateful" && a.reflects && a.args.length === 1 && cap.reads.some((r) => r.accessor === a.reflects)) {
-        return { kind: "bindRead", action: a, readAccessor: a.reflects };
+    if (a.form === "stateful" && a.reflects) {
+        // The reflected read is the action's evidence gate (SDK contract): where the device did not install it,
+        // the write is not offerable on this device, so it gets no control.
+        if (!cap.reads.some((r) => r.accessor === a.reflects)) {
+            return { kind: "skip", action: a };
+        }
+        if (a.args.length === 1) {
+            return { kind: "bindRead", action: a, readAccessor: a.reflects };
+        }
     }
     if (required.length === 0) {
         return {

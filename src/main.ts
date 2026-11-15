@@ -560,6 +560,7 @@ class EufyNext extends utils.Adapter {
         }
 
         await this.buildSnapshotObjects(h);
+        await this.removeStaleObjects(h);
     }
 
     private async buildCapability(h: DeviceHandle, cap: CapabilityDescriptorLike): Promise<void> {
@@ -626,6 +627,36 @@ class EufyNext extends utils.Adapter {
                     this.callAction(h, capAccessor, name, parseJsonArgs(val, args)),
                 );
             }
+        }
+    }
+
+    /**
+     * Delete objects of a device that this version no longer generates (e.g. a control an older version created
+     * for a write the device has no evidence for). Event objects are kept: they are created lazily and an event
+     * the manifest does not list can still have fired.
+     */
+    private async removeStaleObjects(h: DeviceHandle): Promise<void> {
+        if (!h.manifest.bound || !h.manifest.details.length) {
+            return; // an unbound/empty manifest says "ask again later", not "this device has nothing"
+        }
+        const prefix = `${this.namespace}.${h.oid}.`;
+        let objs: Record<string, ioBroker.Object>;
+        try {
+            objs = await this.getForeignObjectsAsync(`${prefix}*`);
+        } catch {
+            return;
+        }
+        const stale = Object.keys(objs)
+            .map((id) => id.slice(this.namespace.length + 1))
+            .filter((id) => !this.createdObjects.has(id) && !id.startsWith(`${h.oid}.events.`))
+            .sort((a, b) => b.length - a.length); // states before their channels
+        for (const id of stale) {
+            this.log.debug(`Removing obsolete object ${id}`);
+            this.writeHandlers.delete(`${this.namespace}.${id}`);
+            await this.delObjectAsync(id);
+        }
+        if (stale.length) {
+            this.log.info(`${h.manifest.name}: removed ${stale.length} obsolete object(s)`);
         }
     }
 

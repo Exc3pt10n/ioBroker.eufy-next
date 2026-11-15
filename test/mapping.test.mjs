@@ -62,6 +62,8 @@ test("every SDK action gets a plan; stateful single-arg actions bind to their re
             if (a.form === "stateful" && a.reflects && a.args.length === 1 && cap.reads.some((r) => r.accessor === a.reflects)) {
                 assert.equal(p.kind, "bindRead", where);
                 assert.equal(p.readAccessor, a.reflects);
+            } else if (a.form === "stateful" && a.reflects && !cap.reads.some((r) => r.accessor === a.reflects)) {
+                assert.equal(p.kind, "skip", `${where}: reflected read absent`);
             } else {
                 assert.notEqual(p.kind, "skip", where);
                 assert.equal(p.common.write, true, where);
@@ -87,6 +89,28 @@ test("lock.lock is a button", () => {
     const p = m.planAction(lock, lock.actions.find((a) => a.name === "lock"));
     assert.equal(p.kind, "button");
     assert.equal(p.common.role, "button");
+});
+
+test("stateful action whose read is not installed gets no control (as on a real T8142/T8410C)", () => {
+    const cap = {
+        capability: "camera",
+        accessor: "camera",
+        reads: [{ accessor: "enabled", property: "enabled", type: "bool", kind: "boolean", writable: false }],
+        actions: [],
+        undescribedActions: [],
+        events: [],
+    };
+    const flip = { name: "setImageFlipped", form: "stateful", reflects: "imageFlipped", args: [{ name: "on", kind: "boolean" }] };
+    const enable = { name: "setEnabled", form: "stateful", reflects: "enabled", args: [{ name: "on", kind: "boolean" }] };
+    assert.equal(m.planAction(cap, flip).kind, "skip");
+    assert.equal(m.planAction(cap, enable).kind, "bindRead");
+});
+
+test("media calls are not offered as buttons", () => {
+    const cap = { capability: "camera", accessor: "camera", reads: [], actions: [], undescribedActions: [], events: [] };
+    for (const name of ["record", "snapshotStored", "snapshotLive"]) {
+        assert.equal(m.planAction(cap, { name, form: "momentary", args: [] }).kind, "skip", name);
+    }
 });
 
 test("value conversion", () => {

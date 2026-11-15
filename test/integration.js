@@ -59,6 +59,12 @@ tests.integration(path.join(__dirname, ".."), {
                 await harness.changeAdapterConfig("eufy-next", {
                     native: { email: "test@example.invalid", password: "secret", countryCode: "de", eventResetSec: 0 },
                 });
+                // an object an older version generated for a write the device has no evidence for
+                await harness.objects.setObjectAsync(`${P}.light.setObsolete`, {
+                    type: "state",
+                    common: { name: "obsolete", type: "boolean", role: "switch", read: false, write: true },
+                    native: {},
+                });
                 await harness.startAdapter({
                     NODE_OPTIONS: `--import=${path.join(__dirname, "fixtures", "sdk-hook.mjs")}`,
                     FAKE_SDK_LOG: logFile,
@@ -79,6 +85,8 @@ tests.integration(path.join(__dirname, ".."), {
                     throw new Error(`device object: ${JSON.stringify(devObj)}`);
                 }
                 if ((await st(`${P}.info.modelName`))?.val !== "Floodlight Cam") throw new Error("info.modelName");
+
+                if (await harness.objects.getObjectAsync(`${P}.light.setObsolete`)) throw new Error("stale object kept");
 
                 // reads with initial values, generated from the manifest
                 const isOn = await harness.objects.getObjectAsync(`${P}.light.isOn`);
