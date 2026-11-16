@@ -1,5 +1,6 @@
 "use strict";
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
 const { tests } = require("@iobroker/testing");
 
 // Starts the adapter in a real js-controller test environment. Without credentials it must stay alive,
@@ -86,7 +87,8 @@ tests.integration(path.join(__dirname, ".."), {
                 execFileSync(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
                     "-t", "4", "-ac", "1", "-c:a", "aac", "-f", "adts", aac]);
                 await harness.startAdapter({
-                    NODE_OPTIONS: `--import=${path.join(__dirname, "fixtures", "sdk-hook.mjs")}`,
+                    // --import takes a URL: a bare absolute path fails on Windows ("Received protocol 'd:'").
+                    NODE_OPTIONS: `--import=${pathToFileURL(path.join(__dirname, "fixtures", "sdk-hook.mjs")).href}`,
                     FAKE_SDK_LOG: logFile,
                     FAKE_SDK_H264: h264,
                     FAKE_SDK_AAC: aac,
