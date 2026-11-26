@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.3.0",
+        "version": "0.4.0",
         "news": {
+            "0.4.0": {
+                "en": "Breaking: distributed via npm (installation from GitHub no longer works). Admin UI in 11 languages, review fixes (state roles, protected custom settings, timers, error handling)",
+                "de": "Breaking: Verteilung über npm (Installation aus GitHub funktioniert nicht mehr). Admin-Oberfläche in 11 Sprachen, Korrekturen aus dem Review (Rollen, geschützte Custom-Einstellungen, Timer, Fehlerbehandlung)",
+                "ru": "Важно: распространение через npm (установка из GitHub больше не работает). Интерфейс администратора на 11 языках, исправления по итогам ревью (роли, защита пользовательских настроек, таймеры, обработка ошибок)",
+                "pt": "Importante: distribuição via npm (a instalação a partir do GitHub deixa de funcionar). Interface de administração em 11 idiomas, correções da revisão (funções, definições personalizadas protegidas, temporizadores, tratamento de erros)",
+                "nl": "Breaking: verspreiding via npm (installatie vanaf GitHub werkt niet meer). Beheerinterface in 11 talen, verbeteringen uit de review (rollen, beschermde custom-instellingen, timers, foutafhandeling)",
+                "fr": "Rupture : distribution via npm (l'installation depuis GitHub ne fonctionne plus). Interface d'administration en 11 langues, corrections issues de la revue (rôles, paramètres personnalisés protégés, minuteries, gestion des erreurs)",
+                "it": "Importante: distribuzione tramite npm (l'installazione da GitHub non funziona più). Interfaccia di amministrazione in 11 lingue, correzioni dalla revisione (ruoli, impostazioni personalizzate protette, timer, gestione degli errori)",
+                "es": "Importante: distribución a través de npm (la instalación desde GitHub ya no funciona). Interfaz de administración en 11 idiomas, correcciones de la revisión (roles, ajustes personalizados protegidos, temporizadores, gestión de errores)",
+                "pl": "Zmiana niekompatybilna: dystrybucja przez npm (instalacja z GitHuba już nie działa). Panel administracyjny w 11 językach, poprawki z przeglądu (role, chronione ustawienia niestandardowe, timery, obsługa błędów)",
+                "uk": "Важливо: розповсюдження через npm (встановлення з GitHub більше не працює). Інтерфейс адміністратора 11 мовами, виправлення за результатами рев’ю (ролі, захищені користувацькі налаштування, таймери, обробка помилок)",
+                "zh-cn": "重大变更：改为通过 npm 分发（不再支持从 GitHub 安装）。管理界面支持 11 种语言，并修复评审中发现的问题（状态角色、受保护的自定义设置、定时器、错误处理）"
+            },
             "0.3.0": {
                 "en": "Station reboot and P2P state, PTZ presets, doorbell quick responses, sendTo callAction/listActions, 2FA via SMS, snapshot as data URL, HTTPS livestream player",
                 "de": "Neustart und P2P-Status der Station, PTZ-Presets, Schnellantworten der Türklingel, sendTo callAction/listActions, 2FA per SMS, Snapshot als Data-URL, HTTPS-Livestream-Player",
@@ -45,14 +58,32 @@
         },
         "titleLang": {
             "en": "eufy (next)",
-            "de": "eufy (next)"
+            "de": "eufy (next)",
+            "ru": "eufy (next)",
+            "pt": "eufy (next)",
+            "nl": "eufy (next)",
+            "fr": "eufy (next)",
+            "it": "eufy (next)",
+            "es": "eufy (next)",
+            "pl": "eufy (next)",
+            "uk": "eufy (next)",
+            "zh-cn": "eufy (next)"
         },
         "desc": {
             "en": "Anker eufy cameras, doorbells, locks, sensors, vacuums and lights via the eufy v6 cloud (eufy-sdk)",
-            "de": "Anker eufy Kameras, Türklingeln, Schlösser, Sensoren, Saugroboter und Lampen über die eufy v6 Cloud (eufy-sdk)"
+            "de": "Anker eufy Kameras, Türklingeln, Schlösser, Sensoren, Saugroboter und Lampen über die eufy v6 Cloud (eufy-sdk)",
+            "ru": "Камеры, дверные звонки, замки, датчики, роботы-пылесосы и лампы Anker eufy через облако eufy v6 (eufy-sdk)",
+            "pt": "Câmaras, campainhas, fechaduras, sensores, aspiradores e luzes Anker eufy através da nuvem eufy v6 (eufy-sdk)",
+            "nl": "Anker eufy-camera's, deurbellen, sloten, sensoren, robotstofzuigers en lampen via de eufy v6-cloud (eufy-sdk)",
+            "fr": "Caméras, sonnettes, serrures, capteurs, aspirateurs et éclairages Anker eufy via le cloud eufy v6 (eufy-sdk)",
+            "it": "Telecamere, campanelli, serrature, sensori, aspirapolvere e luci Anker eufy tramite il cloud eufy v6 (eufy-sdk)",
+            "es": "Cámaras, timbres, cerraduras, sensores, aspiradores y luces Anker eufy a través de la nube eufy v6 (eufy-sdk)",
+            "pl": "Kamery, dzwonki, zamki, czujniki, odkurzacze i lampy Anker eufy przez chmurę eufy v6 (eufy-sdk)",
+            "uk": "Камери, дверні дзвінки, замки, датчики, роботи-пилососи та лампи Anker eufy через хмару eufy v6 (eufy-sdk)",
+            "zh-cn": "通过 eufy v6 云（eufy-sdk）接入 Anker eufy 摄像头、门铃、门锁、传感器、扫地机器人和灯具"
         },
         "authors": [
-            "Exc3pt10n"
+            "Exc3pt10n <kontakt@jansesoft.de>"
         ],
         "keywords": [
             "eufy",
@@ -89,9 +120,10 @@
         ],
         "globalDependencies": [
             {
-                "admin": ">=7.4.10"
+                "admin": ">=7.6.20"
             }
-        ]
+        ],
+        "nogit": true
     },
     "encryptedNative": [
         "password",

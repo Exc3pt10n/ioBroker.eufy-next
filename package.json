@@ -1,9 +1,10 @@
 {
   "name": "iobroker.eufy-next",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "ioBroker adapter for Anker eufy devices (cameras, doorbells, locks, sensors, vacuums, lights) based on the new eufy-sdk (eufy v6 cloud)",
   "author": {
-    "name": "Exc3pt10n"
+    "name": "Exc3pt10n",
+    "email": "kontakt@jansesoft.de"
   },
   "homepage": "https://github.com/Exc3pt10n/ioBroker.eufy-next",
   "license": "MIT",
@@ -43,19 +44,19 @@
     "test:package": "mocha test/package.js --exit",
     "test": "npm run test:unit && npm run test:package",
     "test:integration": "mocha test/integration.js --exit",
-    "prepare": "npm run build"
+    "lint": "eslint ."
   },
   "dependencies": {
-    "@iobroker/adapter-core": "^3.2.3",
+    "@iobroker/adapter-core": "^3.4.3",
     "@mega-yfue/eufy-sdk": "^0.5.0",
     "ffmpeg-static": "^5.3.0",
     "go2rtc-static": "^1.9.4"
   },
   "devDependencies": {
-    "@iobroker/testing": "^5.0.4",
+    "@iobroker/eslint-config": "^2.3.4",
+    "@iobroker/testing": "^6.3.3",
     "@iobroker/types": "^7.0.6",
     "@types/node": "^24.0.0",
-    "mocha": "^11.1.0",
     "typescript": "~5.9.3"
   }
 }

@@ -1,0 +1,104 @@
+# Structure of the ioBroker standard (check-and-lint, adapter-tests, deploy), so the repository checker recognises it.
+# Checks and release come from the central workflow in Exc3pt10n/ioBroker-workflows: lint, type check, build, tests,
+# integration and installation test, npm audit, release-guard and, after a merge to main, the release
+# (tag, GitHub release with the .tgz); "deploy" then publishes exactly that package to npm.
+name: Test and Release
+
+on:
+    push:
+        branches: [main]
+        # The release job sets tags itself (with GITHUB_TOKEN, which starts no run); a tag pushed by hand only
+        # starts the checks — releases are made from main only
+        tags:
+            # normal versions
+            - 'v[0-9]+.[0-9]+.[0-9]+'
+            # pre-releases
+            - 'v[0-9]+.[0-9]+.[0-9]+-**'
+    pull_request: {}
+    schedule:
+        # Weekly with the full matrix
+        - cron: '23 3 * * 1'
+    workflow_dispatch:
+
+# A new push to the same branch cancels the older run (ioBroker standard). Should that hit a release on main after
+# the tag was set: start the workflow again via "Run workflow", it completes the release.
+concurrency:
+    group: ${{ github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+
+jobs:
+    # Standard ioBroker check: type check, lint and package tests (npm run test:package)
+    check-and-lint:
+        if: contains(github.event.head_commit.message, '[skip ci]') == false
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+        steps:
+            - uses: ioBroker/testing-action-check@v2
+              with:
+                  # @mega-yfue/eufy-sdk requires Node.js >= 24.5
+                  node-version: 24.x
+                  type-checking: true
+                  lint: true
+
+    # Central workflow: build, tests, integration and installation test, npm audit, release-guard and, after a merge
+    # to main, the release (tag, GitHub release with .tgz).
+    # Required checks in the branch protection: "adapter / ci-result" and "check-and-lint"
+    adapter:
+        uses: Exc3pt10n/ioBroker-workflows/.github/workflows/adapter.yml@v1
+        # Only the release job needs write access (tag, GitHub release)
+        permissions:
+            contents: write
+        # Token for the tag push: then the version tag starts its own run, which the ioBroker repository checker
+        # expects (E3032). Fine-grained PAT for this repository with "Contents: Read and write"; optional
+        secrets:
+            release-token: ${{ secrets.RELEASE_TOKEN }}
+        with:
+            default-branch: main
+            # TypeScript adapter: runs "npm run check" and "npm run build"
+            build: true
+            # The .tgz on the GitHub release is exactly the package that is published to npm
+            prebuilt-package: true
+            # Distribution via npm: no "prepare", common.nogit, at most 7 news entries
+            npm-package: true
+            # No "release" branch: without the build in the repository it cannot be installed from GitHub
+            release-branch: ''
+            # Sources shipped via the build; changes there need a new version
+            extra-runtime-paths: 'src/'
+            # @mega-yfue/eufy-sdk requires Node.js >= 24.5
+            node-versions: '["24"]'
+            integration-node: '24'
+            weekly-node-versions: '["24", "26"]'
+
+    # Unit and integration tests with the official ioBroker action
+    adapter-tests:
+        needs: check-and-lint
+        if: contains(github.event.head_commit.message, '[skip ci]') == false
+        runs-on: ${{ matrix.os }}
+        timeout-minutes: 20
+        strategy:
+            fail-fast: false
+            matrix:
+                # @mega-yfue/eufy-sdk requires Node.js >= 24.5
+                node-version: [24.x, 26.x]
+                os: [ubuntu-latest, windows-latest, macos-latest]
+        steps:
+            # Version tag instead of a commit id: required by the ioBroker repository checker for ioBroker actions
+            - uses: ioBroker/testing-action-adapter@v1
+              with:
+                  node-version: ${{ matrix.node-version }}
+                  os: ${{ matrix.os }}
+                  build: true
+
+    # After a release: publish the package from the GitHub release to npm (trusted publishing, no token)
+    deploy:
+        needs: [check-and-lint, adapter, adapter-tests]
+        if: needs.adapter.outputs.released == 'true'
+        uses: Exc3pt10n/ioBroker-workflows/.github/workflows/npm-publish.yml@v1
+        permissions:
+            contents: read
+            id-token: write
+        with:
+            version: ${{ needs.adapter.outputs.version }}

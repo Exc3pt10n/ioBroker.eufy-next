@@ -7,7 +7,18 @@ keypads, robot vacuums, mowers and smart lights — built on the new
 [`@mega-yfue/eufy-sdk`](https://github.com/mega-yfue/eufy-sdk), which speaks the current eufy **v6 cloud**
 with realtime events over push, MQTT and P2P.
 
+Manufacturer: [eufy (Anker Innovations)](https://www.eufy.com/). German description: [docs/de/README.md](docs/de/README.md).
+
 > Independent and unofficial. Not affiliated with, endorsed by, or sponsored by Anker Innovations or eufy.
+
+## Installation
+
+The adapter is published on npm as `iobroker.eufy-next` (it is not yet part of the official ioBroker repository):
+
+- Admin → Adapters → *Install from custom URL* → tab **npm** → `iobroker.eufy-next`, or
+- on the command line: `iobroker url iobroker.eufy-next`
+
+Then create an instance and continue with [Configuration](#configuration).
 
 ## How it works
 
@@ -20,8 +31,8 @@ The adapter contains **no per-model code**. For every device it asks the SDK wha
 | read (`level`, `brightness`, `mode`…)      | state with type/role/unit/`states` derived from the value's `kind` |
 | writable read / stateful action            | the same state becomes writable (`ack=false` → command)            |
 | momentary action without arguments         | `button` state                                                     |
-| action with one argument                   | write-only control state                                           |
-| action with several arguments              | write-only `json` state (array or object by argument name)         |
+| action with one argument                   | control state (keeps the last value sent)                          |
+| action with several arguments              | `json` command state (array or object by argument name)            |
 | event (`motion`, `doorbellPress`…)         | `events.<name>.triggered` / `.lastTriggered` / `.payload`          |
 
 So a device only gets the controls it really supports, and devices or capabilities added to the SDK appear
@@ -115,8 +126,11 @@ also uses the player port + 1 on 127.0.0.1 internally.
 ## Requirements
 
 - **Node.js ≥ 24.5.0** (required by the eufy-sdk; older versions log a warning and encrypted camera video may fail)
-- js-controller ≥ 6.0.11, admin ≥ 7.4.10
-- `ffmpeg` and `go2rtc` are bundled (ffmpeg-static, go2rtc-static); a system ffmpeg is used if present
+- js-controller ≥ 6.0.11, admin ≥ 7.6.20
+- For snapshots from a running camera and for the livestream the adapter needs `ffmpeg` (remuxes the camera's video
+  and encodes its sound) and [go2rtc](https://github.com/AlexxIT/go2rtc) (player server). Both are installed as npm
+  dependencies (`ffmpeg-static`, `go2rtc-static`, which download the binary for your platform during installation).
+  A system `ffmpeg` on `PATH` is preferred.
 
 ## Configuration
 
@@ -144,33 +158,7 @@ The session is stored in the instance data directory, so later restarts log in w
 | Client identity        | Leave empty; a stable random identity is generated per instance             |
 | Verbose SDK logging    | Show SDK info/warnings in the ioBroker log (debug level always contains them) |
 
-## Development
-
-```bash
-npm install
-npm run build
-npm test                  # unit + package tests
-npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
-```
-
-- `test/mapping.test.mjs` runs the manifest mapping over a synthetic device that has **every** capability the
-  installed SDK knows, so a new SDK release is checked automatically.
-- `test/integration.js` starts the adapter in a real js-controller. The second suite swaps the SDK for
-  `test/fixtures/fake-sdk.mjs` (via a Node module hook): the cloud is fake, but the device objects are the SDK's
-  real capability objects — covering 2FA login, object tree, live updates, events and commands.
-
-## Deutsch – Kurzanleitung
-
-1. E-Mail, Passwort und Ländercode (z. B. `DE`) eintragen. Am besten ein zweites eufy-Konto anlegen und die Geräte
-   in der eufy-App damit teilen.
-2. Instanz starten. eufy schickt beim ersten Login einen **Bestätigungscode**. In den Instanzeinstellungen im Tab
-   **Anmeldung (2FA / Captcha)** eingeben und *Code senden* klicken (oder in `eufy-next.0.auth.verifyCode` schreiben).
-   Während der Anmeldung die Einstellungen **nicht speichern**, sonst startet die Instanz neu.
-3. Danach erscheinen alle Geräte unter `eufy-next.0.<Seriennummer>` mit genau den Datenpunkten, die das Gerät
-   unterstützt. Ereignisse (Bewegung, Klingel, Person …) liegen unter `events`.
-4. Livestream: `livestream.start` drücken, `livestream.url` enthält dann die Player-Seite (go2rtc, Port 1984). Der
-   Stream endet nach der Höchstdauer (Standard 120 s), weil Akku-Kameras sonst leerlaufen. Den Player-Port nur im
-   Heimnetz nutzen, nicht ins Internet freigeben.
+Developer information: [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Changelog
 
@@ -179,35 +167,48 @@ npm run test:integration  # js-controller integration (needs Node.js >= 24.5)
     ### **WORK IN PROGRESS**
 -->
 
+### 0.4.0 (2026-11-26)
+
+- (Exc3pt10n) **Breaking:** the adapter is now distributed via npm. Installations from GitHub (`tarball/release`)
+  no longer update — reinstall it from npm (see [Installation](#installation)); settings and objects are kept
+- (Exc3pt10n) Admin UI available in 11 languages
+- (Exc3pt10n) State roles follow the ioBroker role list (no `level.mode`/`value.mode`; command states are readable)
+- (Exc3pt10n) Objects with custom settings (history, InfluxDB, SQL …) are no longer deleted when a device stops
+  providing them
+- (Exc3pt10n) Configured intervals are validated in code; background errors are logged instead of being unhandled
+- (Exc3pt10n) The go2rtc configuration (RTSP password, TLS key) is written to a protected file instead of the
+  command line
+- (Exc3pt10n) Doorbell press events use the role `sensor`
+
 ### 0.3.0 (2026-11-15)
 
-- `station.reboot` and `station.p2pConnected` for HomeBases and standalone cameras
-- PTZ presets: `ptz.presetGoto` / `presetSave` / `presetDelete` (+ `ptz.presets` where readable)
-- Doorbell quick responses: `doorbell.quickResponse` (+ list where readable)
-- `sendTo` commands `listActions` and `callAction` for every action a device offers, including undescribed ones
-- 2FA code via e-mail or SMS (setting)
-- Snapshot additionally as data URL (`snapshot.dataUrl`)
-- Livestream player optionally over HTTPS with an ioBroker certificate
-- Fix: rebuilding a device's objects after it gained capabilities no longer removes `info.stationSn`
+- (Exc3pt10n) `station.reboot` and `station.p2pConnected` for HomeBases and standalone cameras
+- (Exc3pt10n) PTZ presets: `ptz.presetGoto` / `presetSave` / `presetDelete` (+ `ptz.presets` where readable)
+- (Exc3pt10n) Doorbell quick responses: `doorbell.quickResponse` (+ list where readable)
+- (Exc3pt10n) `sendTo` commands `listActions` and `callAction` for every action a device offers
+- (Exc3pt10n) 2FA code via e-mail or SMS (setting)
+- (Exc3pt10n) Snapshot additionally as data URL (`snapshot.dataUrl`)
+- (Exc3pt10n) Livestream player optionally over HTTPS with an ioBroker certificate
+- (Exc3pt10n) Fix: rebuilding a device's objects after it gained capabilities no longer removes `info.stationSn`
 
 ### 0.2.0 (2026-11-15)
 
-- Camera livestream: `livestream.start/stop/url/rtsp/active` with a bundled go2rtc player (MSE/HLS/WebRTC, RTSP),
-  video copied, sound as AAC, configurable maximum duration (default 120 s)
-- Still from the running stream as snapshot
-- Bundled ffmpeg (ffmpeg-static) as fallback when no ffmpeg is on the host
+- (Exc3pt10n) Camera livestream: `livestream.start/stop/url/rtsp/active` with a bundled go2rtc player
+  (MSE/HLS/WebRTC, RTSP), video copied, sound as AAC, configurable maximum duration (default 120 s)
+- (Exc3pt10n) Still from the running stream as snapshot
+- (Exc3pt10n) Bundled ffmpeg (ffmpeg-static) as fallback when no ffmpeg is on the host
 
 ### 0.1.0 (2026-11-15)
 
-- Initial release based on `@mega-yfue/eufy-sdk` 0.5
-- Manifest-driven object tree for all device families, live property updates, events, snapshots
-- Login with 2FA and captcha from the admin UI
+- (Exc3pt10n) Initial release based on `@mega-yfue/eufy-sdk` 0.5
+- (Exc3pt10n) Manifest-driven object tree for all device families, live property updates, events, snapshots
+- (Exc3pt10n) Login with 2FA and captcha from the admin UI
 
 ## License
 
-MIT License
+MIT License, see [LICENSE](LICENSE).
 
-Copyright (c) 2026 Exc3pt10n
+Copyright (c) 2026 Exc3pt10n <kontakt@jansesoft.de>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 documentation files (the "Software"), to deal in the Software without restriction, including without limitation the

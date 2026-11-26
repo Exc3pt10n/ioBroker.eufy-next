@@ -4,10 +4,10 @@
  * The object tree is generated from each device's own manifest (`dev.describe()`), so it mirrors exactly
  * what the SDK can read and write on that device — no per-model code lives in this adapter.
  */
-import * as utils from "@iobroker/adapter-core";
-import { randomUUID } from "node:crypto";
-import { accessSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import * as path from "node:path";
+import * as utils from '@iobroker/adapter-core';
+import { randomUUID } from 'node:crypto';
+import { accessSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import * as path from 'node:path';
 import type {
     AnyDeviceEvent,
     AvailabilityObservation,
@@ -16,7 +16,7 @@ import type {
     EufyDevice,
     EufyMega,
     LoginResult,
-} from "@mega-yfue/eufy-sdk" with { "resolution-mode": "import" };
+} from '@mega-yfue/eufy-sdk' with { 'resolution-mode': 'import' };
 import {
     type CapabilityDescriptorLike,
     type DeviceManifestLike,
@@ -30,18 +30,25 @@ import {
     readCommon,
     sanitizeId,
     toStateValue,
-} from "./lib/mapping";
+} from './lib/mapping';
 import {
     type Go2rtcOptions,
     type LiveConsumerLike,
+    type TimerApi,
+    nodeTimers,
     Go2rtcServer,
     LiveSession,
     detectHostname,
     playerUrls,
     pushUrl,
-} from "./lib/livestream";
+} from './lib/livestream';
 
-type Sdk = typeof import("@mega-yfue/eufy-sdk", { with: { "resolution-mode": "import" } });
+// The SDK is ESM-only and loaded with a dynamic import(); this is the type of that module.
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+type Sdk = typeof import('@mega-yfue/eufy-sdk', { with: { 'resolution-mode': 'import' } });
+
+/** setTimeout/setInterval cannot wait longer than this (2^31 - 1 ms). */
+const MAX_TIMER_MS = 2_147_483_647;
 
 /** Where a property announced by the SDK lands in the object tree. */
 interface PropertyTarget {
@@ -70,15 +77,15 @@ type WriteHandler = (value: ioBroker.StateValue) => Promise<void>;
 
 /** Events that come with a camera thumbnail worth keeping as the latest snapshot. */
 const SNAPSHOT_EVENTS = new Set([
-    "motion",
-    "personDetected",
-    "strangerDetected",
-    "doorbellPress",
-    "petDetection",
-    "vehicleDetected",
-    "packageDelivered",
-    "packageTaken",
-    "dogDetected",
+    'motion',
+    'personDetected',
+    'strangerDetected',
+    'doorbellPress',
+    'petDetection',
+    'vehicleDetected',
+    'packageDelivered',
+    'packageTaken',
+    'dogDetected',
 ]);
 
 const RELOGIN_DEFAULT_MS = 5 * 60_000;
@@ -98,15 +105,16 @@ class EufyNext extends utils.Adapter {
     private go2rtcOpts?: Go2rtcOptions;
     private readonly liveSessions = new Map<string, LiveSession>();
     private ffmpegBin?: string;
+    private unloading = false;
     /** Certificate + key for the HTTPS player, loaded once at start. */
     private liveCerts?: { cert: string; key: string };
 
     public constructor(options: Partial<utils.AdapterOptions> = {}) {
-        super({ ...options, name: "eufy-next" });
-        this.on("ready", this.onReady.bind(this));
-        this.on("stateChange", this.onStateChange.bind(this));
-        this.on("message", this.onMessage.bind(this));
-        this.on("unload", this.onUnload.bind(this));
+        super({ ...options, name: 'eufy-next' });
+        this.on('ready', this.onReady.bind(this));
+        this.on('stateChange', this.onStateChange.bind(this));
+        this.on('message', this.onMessage.bind(this));
+        this.on('unload', this.onUnload.bind(this));
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -114,32 +122,32 @@ class EufyNext extends utils.Adapter {
     // ----------------------------------------------------------------------------------------------------
 
     private async onReady(): Promise<void> {
-        await this.setStateAsync("info.connection", false, true);
-        await this.subscribeStatesAsync("*");
+        await this.setStateAsync('info.connection', false, true);
+        await this.subscribeStatesAsync('*');
 
-        const [major, minor] = process.versions.node.split(".").map(Number);
+        const [major, minor] = process.versions.node.split('.').map(Number);
         if (major < 24 || (major === 24 && minor < 5)) {
             this.log.warn(
                 `eufy-sdk requires Node.js >= 24.5.0 (running ${process.versions.node}). ` +
-                    "Login and events usually work, but encrypted camera video may fail. Please upgrade Node.js.",
+                    'Login and events usually work, but encrypted camera video may fail. Please upgrade Node.js.',
             );
         }
 
         if (!this.config.email || !this.config.password) {
-            await this.setLoginStatus("no_credentials", "Please enter e-mail and password in the instance settings.");
-            this.log.error("No eufy credentials configured — please open the instance settings.");
+            await this.setLoginStatus('no_credentials', 'Please enter e-mail and password in the instance settings.');
+            this.log.error('No eufy credentials configured — please open the instance settings.');
             return;
         }
 
         this.excluded = new Set(
-            (this.config.excludeDevices || "")
+            (this.config.excludeDevices || '')
                 .split(/[,;\s]+/)
-                .map((s) => s.trim())
+                .map(s => s.trim())
                 .filter(Boolean),
         );
 
         try {
-            this.sdk = await import("@mega-yfue/eufy-sdk");
+            this.sdk = await import('@mega-yfue/eufy-sdk');
         } catch (e) {
             this.log.error(`Cannot load @mega-yfue/eufy-sdk: ${errText(e)}`);
             return;
@@ -155,6 +163,7 @@ class EufyNext extends utils.Adapter {
     }
 
     private async onUnload(callback: () => void): Promise<void> {
+        this.unloading = true;
         try {
             if (this.reloginTimer) {
                 this.clearTimeout(this.reloginTimer);
@@ -164,20 +173,35 @@ class EufyNext extends utils.Adapter {
             }
             this.eventResetTimers.clear();
             for (const s of this.liveSessions.values()) {
-                s.stop("adapter stopping");
+                s.stop('adapter stopping');
             }
             this.liveSessions.clear();
             await this.go2rtc?.stop();
             if (this.eufy) {
-                await Promise.race([this.eufy.disconnect(), new Promise((r) => setTimeout(r, 4000))]);
+                await Promise.race([this.eufy.disconnect(), new Promise(r => setTimeout(r, 4000))]);
             }
             this.devices.clear();
-            await this.setStateAsync("info.connection", false, true);
+            await this.setStateAsync('info.connection', false, true);
         } catch {
             // ignore — shutting down
         } finally {
             callback();
         }
+    }
+
+    /** The adapter's own timers for the livestream module: js-controller clears them when the instance stops. */
+    private adapterTimers(): TimerApi {
+        // While unloading, the adapter refuses new timers, but stopping ffmpeg/go2rtc still needs its kill timeout.
+        return {
+            set: (fn, ms) => (this.unloading ? nodeTimers.set(fn, ms) : this.setTimeout(fn, ms)),
+            clear: handle =>
+                this.unloading ? nodeTimers.clear(handle) : this.clearTimeout(handle as ioBroker.Timeout),
+        };
+    }
+
+    /** Run a promise in the background; a rejection is logged instead of becoming an unhandled rejection. */
+    private bg(p: Promise<unknown>): void {
+        p.catch(e => this.log.warn(`Background task failed: ${errText(e)}`));
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -201,16 +225,16 @@ class EufyNext extends utils.Adapter {
         if (this.config.openudid?.trim()) {
             return this.config.openudid.trim();
         }
-        const file = path.join(this.dataDir(), "identity.json");
+        const file = path.join(this.dataDir(), 'identity.json');
         try {
-            const stored = JSON.parse(readFileSync(file, "utf-8")) as { openudid?: string };
+            const stored = JSON.parse(readFileSync(file, 'utf-8')) as { openudid?: string };
             if (stored.openudid) {
                 return stored.openudid;
             }
         } catch {
             // first start
         }
-        const openudid = randomUUID().replace(/-/g, "");
+        const openudid = randomUUID().replace(/-/g, '');
         writeFileSync(file, JSON.stringify({ openudid }), { mode: 0o600 });
         return openudid;
     }
@@ -223,12 +247,12 @@ class EufyNext extends utils.Adapter {
         return new sdk.EufyMega({
             email: this.config.email.trim(),
             password: this.config.password,
-            countryCode: (this.config.countryCode || "DE").trim().toUpperCase(),
+            countryCode: (this.config.countryCode || 'DE').trim().toUpperCase(),
             openudid: this.openudid(),
-            store: new sdk.FileSessionStore(path.join(dir, "session.json")),
-            pushStore: new sdk.FileFcmStore(path.join(dir, "push.json")),
-            pollMs: Math.max(1, Number(this.config.pollIntervalMin) || 10) * 60_000,
-            cacheTtlMs: Math.max(5, Number(this.config.cacheTtlSec) || 15) * 1000,
+            store: new sdk.FileSessionStore(path.join(dir, 'session.json')),
+            pushStore: new sdk.FileFcmStore(path.join(dir, 'push.json')),
+            pollMs: clampNumber(this.config.pollIntervalMin, 1, 1440, 10) * 60_000,
+            cacheTtlMs: clampNumber(this.config.cacheTtlSec, 5, 3600, 15) * 1000,
             ...(ffmpegPath ? { ffmpegPath } : {}),
             logger: {
                 debug: (m: string, ...a: unknown[]) => log.debug(`[sdk] ${fmt(m, a)}`),
@@ -251,7 +275,7 @@ class EufyNext extends utils.Adapter {
                 this.liveCerts = { cert: certs.cert, key: certs.key };
                 return;
             }
-            this.log.warn("Livestream HTTPS: no certificate/key found — the player falls back to HTTP");
+            this.log.warn('Livestream HTTPS: no certificate/key found — the player falls back to HTTP');
         } catch (e) {
             this.log.warn(`Livestream HTTPS: cannot read certificates (${errText(e)}) — the player falls back to HTTP`);
         }
@@ -263,10 +287,10 @@ class EufyNext extends utils.Adapter {
             return this.ffmpegBin || undefined;
         }
         const configured = this.config.ffmpegPath?.trim();
-        let found = configured || "";
+        let found = configured || '';
         if (!found) {
-            const exe = process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
-            for (const dir of (process.env.PATH ?? "").split(path.delimiter).filter(Boolean)) {
+            const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+            for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
                 try {
                     accessSync(path.join(dir, exe), fsConstants.X_OK);
                     found = path.join(dir, exe);
@@ -278,19 +302,19 @@ class EufyNext extends utils.Adapter {
         }
         if (!found) {
             try {
-                found = (require("ffmpeg-static") as string | null) ?? "";
+                found = requireOptional('ffmpeg-static') ?? '';
             } catch {
-                found = "";
+                found = '';
             }
         }
         this.ffmpegBin = found;
-        this.log.debug(`ffmpeg: ${found || "not available"}`);
+        this.log.debug(`ffmpeg: ${found || 'not available'}`);
         return found || undefined;
     }
 
     /** Where eufy sends the 2FA code: 2 = e-mail (default), 1 = SMS. */
     private messageType(): number {
-        return this.config.verifyMethod === "sms" ? 1 : 2;
+        return this.config.verifyMethod === 'sms' ? 1 : 2;
     }
 
     private async startLogin(): Promise<void> {
@@ -299,7 +323,7 @@ class EufyNext extends utils.Adapter {
         }
         this.loginInFlight = true;
         try {
-            await this.setLoginStatus("logging_in", "Logging in to the eufy cloud…");
+            await this.setLoginStatus('logging_in', 'Logging in to the eufy cloud…');
             await this.handleLoginResult(await this.eufy.login({ messageType: this.messageType() }));
         } catch (e) {
             await this.onLoginError(e);
@@ -310,26 +334,26 @@ class EufyNext extends utils.Adapter {
 
     private async handleLoginResult(r: LoginResult): Promise<void> {
         switch (r.status) {
-            case "ok":
-                await this.setStateAsync("info.captchaImage", "", true);
-                await this.setLoginStatus("ok", "Logged in");
-                this.log.info("Logged in to the eufy cloud");
+            case 'ok':
+                await this.setStateAsync('info.captchaImage', '', true);
+                await this.setLoginStatus('ok', 'Logged in');
+                this.log.info('Logged in to the eufy cloud');
                 await this.loadDevices();
                 return;
-            case "captcha":
-                await this.setStateAsync("info.captchaImage", r.image, true);
+            case 'captcha':
+                await this.setStateAsync('info.captchaImage', r.image, true);
                 await this.setLoginStatus(
-                    "captcha",
-                    r.retry ? "Wrong captcha answer — please try again." : "Captcha required.",
+                    'captcha',
+                    r.retry ? 'Wrong captcha answer — please try again.' : 'Captcha required.',
                 );
                 this.log.warn(
-                    `eufy requests a captcha${r.retry ? " (previous answer was wrong)" : ""}. Open the instance ` +
+                    `eufy requests a captcha${r.retry ? ' (previous answer was wrong)' : ''}. Open the instance ` +
                         `settings ("Login" tab) or view state ${this.namespace}.info.captchaImage, then write the ` +
                         `characters to ${this.namespace}.auth.captchaAnswer.`,
                 );
                 return;
-            case "2fa":
-                await this.setLoginStatus("2fa", `Verification code sent (${r.method}).`);
+            case '2fa':
+                await this.setLoginStatus('2fa', `Verification code sent (${r.method}).`);
                 this.log.warn(
                     `eufy sent a verification code (${r.method}). Enter it in the instance settings ("Login" tab) ` +
                         `or write it to ${this.namespace}.auth.verifyCode. Do not restart the adapter meanwhile.`,
@@ -341,8 +365,8 @@ class EufyNext extends utils.Adapter {
     private async onLoginError(e: unknown): Promise<void> {
         const retryAfter = (e as { retryAfterMs?: number })?.retryAfterMs;
         const wait = Math.max(retryAfter ?? 0, RELOGIN_DEFAULT_MS);
-        await this.setLoginStatus("error", errText(e));
-        await this.setStateAsync("info.connection", false, true);
+        await this.setLoginStatus('error', errText(e));
+        await this.setStateAsync('info.connection', false, true);
         this.log.error(`eufy login failed: ${errText(e)} — retrying in ${Math.round(wait / 60_000)} min`);
         this.scheduleRelogin(wait);
     }
@@ -353,13 +377,13 @@ class EufyNext extends utils.Adapter {
         }
         this.reloginTimer = this.setTimeout(() => {
             this.reloginTimer = undefined;
-            void this.startLogin();
+            this.bg(this.startLogin());
         }, ms);
     }
 
     private async submitVerifyCode(code: string): Promise<string> {
         if (!this.eufy) {
-            throw new Error("adapter not ready");
+            throw new Error('adapter not ready');
         }
         const r = await this.eufy.submitVerifyCode(code.trim());
         await this.handleLoginResult(r);
@@ -368,7 +392,7 @@ class EufyNext extends utils.Adapter {
 
     private async solveCaptcha(answer: string): Promise<string> {
         if (!this.eufy) {
-            throw new Error("adapter not ready");
+            throw new Error('adapter not ready');
         }
         const r = await this.eufy.solveCaptcha(answer.trim(), { messageType: this.messageType() });
         await this.handleLoginResult(r);
@@ -381,7 +405,7 @@ class EufyNext extends utils.Adapter {
             return;
         }
         this.devicesLoaded = false;
-        await this.setStateAsync("info.connection", false, true);
+        await this.setStateAsync('info.connection', false, true);
         try {
             await this.eufy.disconnect();
         } catch {
@@ -392,8 +416,8 @@ class EufyNext extends utils.Adapter {
     }
 
     private async setLoginStatus(status: string, message: string): Promise<void> {
-        await this.setStateAsync("info.loginStatus", status, true);
-        await this.setStateAsync("info.loginMessage", message, true);
+        await this.setStateAsync('info.loginStatus', status, true);
+        await this.setStateAsync('info.loginMessage', message, true);
     }
 
     // ----------------------------------------------------------------------------------------------------
@@ -401,82 +425,82 @@ class EufyNext extends utils.Adapter {
     // ----------------------------------------------------------------------------------------------------
 
     private wireClientEvents(eufy: EufyMega): void {
-        eufy.on("error", (err: Error) => {
+        eufy.on('error', (err: Error) => {
             // The push-check step after the token registration is best-effort in the SDK; the cloud
             // commonly answers -1 there while push delivery works. Not worth a warning on every start.
-            if (err.message.includes("/app/review/app_push_check")) {
+            if (err.message.includes('/app/review/app_push_check')) {
                 this.log.debug(`eufy: ${err.message} (best-effort push check, ignored)`);
                 return;
             }
             this.log.warn(`eufy: ${err.message}`);
         });
 
-        eufy.on("sessionExpired", (err) => {
+        eufy.on('sessionExpired', err => {
             this.devicesLoaded = false;
-            void this.setStateAsync("info.connection", false, true);
+            this.bg(this.setStateAsync('info.connection', false, true));
             const wait = Math.max(err.retryAfterMs || 0, 60_000);
             this.log.warn(
-                `eufy session expired${err.contended ? " (another client is using the same identity)" : ""} — ` +
+                `eufy session expired${err.contended ? ' (another client is using the same identity)' : ''} — ` +
                     `logging in again in ${Math.round(wait / 1000)} s`,
             );
-            void this.setLoginStatus("error", err.message);
+            this.bg(this.setLoginStatus('error', err.message));
             this.scheduleRelogin(wait);
         });
 
-        eufy.on("connect", () => void this.setStateAsync("info.mqttConnected", true, true));
-        eufy.on("disconnect", () => void this.setStateAsync("info.mqttConnected", false, true));
-        eufy.on("pushConnect", () => void this.setStateAsync("info.pushConnected", true, true));
-        eufy.on("pushDisconnect", () => void this.setStateAsync("info.pushConnected", false, true));
-        eufy.on("p2pConnect", (stationSn: string) => void this.setP2p(stationSn, true));
-        eufy.on("p2pClose", (stationSn: string) => void this.setP2p(stationSn, false));
+        eufy.on('connect', () => this.bg(this.setStateAsync('info.mqttConnected', true, true)));
+        eufy.on('disconnect', () => this.bg(this.setStateAsync('info.mqttConnected', false, true)));
+        eufy.on('pushConnect', () => this.bg(this.setStateAsync('info.pushConnected', true, true)));
+        eufy.on('pushDisconnect', () => this.bg(this.setStateAsync('info.pushConnected', false, true)));
+        eufy.on('p2pConnect', (stationSn: string) => this.bg(this.setP2p(stationSn, true)));
+        eufy.on('p2pClose', (stationSn: string) => this.bg(this.setP2p(stationSn, false)));
 
-        eufy.on("propertyChanged", (e) => {
+        eufy.on('propertyChanged', e => {
             if (e.deviceSn) {
-                void this.onPropertyChanged(e.deviceSn, e.property, e.value);
+                this.bg(this.onPropertyChanged(e.deviceSn, e.property, e.value));
             }
         });
 
-        eufy.on("event", (e: AnyDeviceEvent) => {
-            if (e.eventName !== "propertyChanged") {
-                void this.onDeviceEvent(e);
+        eufy.on('event', (e: AnyDeviceEvent) => {
+            if (e.eventName !== 'propertyChanged') {
+                this.bg(this.onDeviceEvent(e));
             }
         });
 
-        eufy.on("deviceState", (s: DeviceState) => {
+        eufy.on('deviceState', (s: DeviceState) => {
             const h = this.devices.get(s.sn);
             if (h && s.lastSeenMs) {
-                void this.setStateAsync(`${h.oid}.info.lastSeen`, s.lastSeenMs, true);
+                this.bg(this.setStateAsync(`${h.oid}.info.lastSeen`, s.lastSeenMs, true));
             }
         });
 
-        eufy.on("availability", (o: AvailabilityObservation) => {
+        eufy.on('availability', (o: AvailabilityObservation) => {
             const h = this.devices.get(o.entity.sn);
             if (h) {
-                void this.setStateAsync(`${h.oid}.info.available`, o.availability === "available", true);
+                this.bg(this.setStateAsync(`${h.oid}.info.available`, o.availability === 'available', true));
             }
         });
 
-        eufy.on("deviceAdded", (d: EufyDevice) => {
+        eufy.on('deviceAdded', (d: EufyDevice) => {
             this.log.info(`New eufy device on the account: ${d.name ?? d.model} (${d.sn})`);
             if (this.devicesLoaded) {
-                void this.syncDevice(d).catch((e) => this.log.warn(`Cannot add ${d.sn}: ${errText(e)}`));
+                void this.syncDevice(d).catch(e => this.log.warn(`Cannot add ${d.sn}: ${errText(e)}`));
             }
         });
 
-        eufy.on("deviceRemoved", (d: EufyDevice) => {
+        eufy.on('deviceRemoved', (d: EufyDevice) => {
             const h = this.devices.get(d.sn);
             this.log.info(`eufy device removed from the account: ${d.name ?? d.model} (${d.sn})`);
             if (h) {
                 this.devices.delete(d.sn);
-                void this.setStateAsync(`${h.oid}.info.available`, false, true);
+                this.bg(this.setStateAsync(`${h.oid}.info.available`, false, true));
             }
         });
 
-        eufy.on("deviceCapabilities", (info) => {
+        eufy.on('deviceCapabilities', info => {
             const h = this.devices.get(info.deviceSn);
             if (h) {
-                this.log.info(`${info.deviceSn} gained capabilities: ${info.gained.join(", ")}`);
-                void this.buildDeviceTree(h).catch((e) => this.log.warn(`Rebuild ${h.sn} failed: ${errText(e)}`));
+                this.log.info(`${info.deviceSn} gained capabilities: ${info.gained.join(', ')}`);
+                void this.buildDeviceTree(h).catch(e => this.log.warn(`Rebuild ${h.sn} failed: ${errText(e)}`));
             }
         });
     }
@@ -498,7 +522,7 @@ class EufyNext extends utils.Adapter {
         const sn = e.deviceSn ?? e.stationSn;
         const h = sn ? this.devices.get(sn) : undefined;
         if (!h) {
-            this.log.debug(`event ${e.eventName} for unknown device ${sn ?? "-"}`);
+            this.log.debug(`event ${e.eventName} for unknown device ${sn ?? '-'}`);
             return;
         }
         const base = `${h.oid}.events.${sanitizeId(e.eventName)}`;
@@ -509,7 +533,7 @@ class EufyNext extends utils.Adapter {
         await this.setStateAsync(`${base}.triggered`, true, true);
         await this.setStateAsync(`${h.oid}.events.lastEvent`, e.eventName, true);
 
-        const resetSec = Number(this.config.eventResetSec) || 0;
+        const resetSec = clampNumber(this.config.eventResetSec, 0, 3600, 30);
         if (resetSec > 0) {
             const old = this.eventResetTimers.get(base);
             if (old) {
@@ -517,21 +541,21 @@ class EufyNext extends utils.Adapter {
             }
             const timer = this.setTimeout(() => {
                 this.eventResetTimers.delete(base);
-                void this.setStateAsync(`${base}.triggered`, false, true);
+                this.bg(this.setStateAsync(`${base}.triggered`, false, true));
             }, resetSec * 1000);
             if (timer) {
                 this.eventResetTimers.set(base, timer);
             }
         }
 
-        if (e.eventName === "armingModeChanged") {
+        if (e.eventName === 'armingModeChanged') {
             // Carries no mode — re-read every property of the device so the new guard mode shows up.
             this.refreshAll(h);
         }
 
         if (this.config.saveSnapshots && SNAPSHOT_EVENTS.has(e.eventName) && e.deviceSn) {
             // The stored thumbnail is retained from the same push; give it a moment to land.
-            this.setTimeout(() => void this.storeSnapshot(h, false, "event"), 3000);
+            this.setTimeout(() => this.bg(this.storeSnapshot(h, false, 'event')), 3000);
         }
     }
 
@@ -563,7 +587,7 @@ class EufyNext extends utils.Adapter {
             }
         }
         this.devicesLoaded = true;
-        await this.setStateAsync("info.connection", true, true);
+        await this.setStateAsync('info.connection', true, true);
     }
 
     private async syncDevice(d: EufyDevice): Promise<void> {
@@ -575,26 +599,26 @@ class EufyNext extends utils.Adapter {
             sn: d.sn,
             oid: sanitizeId(d.sn),
             dev,
-            manifest: dev.describe() as unknown as DeviceManifestLike,
+            manifest: dev.describe(),
             rec: d,
             properties: new Map(),
         };
         this.devices.set(d.sn, h);
         await this.buildDeviceTree(h, true);
         this.log.info(
-            `Device ${h.manifest.name} (${h.manifest.modelName}${h.manifest.model ? `, ${h.manifest.model}` : ""}) ` +
-                `ready — capabilities: ${h.manifest.capabilities.join(", ") || "none"}`,
+            `Device ${h.manifest.name} (${h.manifest.modelName}${h.manifest.model ? `, ${h.manifest.model}` : ''}) ` +
+                `ready — capabilities: ${h.manifest.capabilities.join(', ') || 'none'}`,
         );
     }
 
     private async buildDeviceTree(h: DeviceHandle, initial = false): Promise<void> {
         const rec = h.rec;
-        h.manifest = h.dev.describe() as unknown as DeviceManifestLike;
+        h.manifest = h.dev.describe();
         const m = h.manifest;
         const oid = h.oid;
 
         await this.extendObjectAsync(oid, {
-            type: "device",
+            type: 'device',
             common: {
                 name: m.name || m.modelName || h.sn,
                 statusStates: { onlineId: `${this.namespace}.${oid}.info.available` },
@@ -602,23 +626,23 @@ class EufyNext extends utils.Adapter {
             native: { sn: h.sn, model: m.model, codec: m.codec },
         });
 
-        await this.ensureChannel(`${oid}.info`, "Device information");
+        await this.ensureChannel(`${oid}.info`, 'Device information');
         const info: [string, StateCommon, ioBroker.StateValue][] = [
-            ["name", stateDef("Name", "string", "info.name"), m.name],
-            ["serialNumber", stateDef("Serial number", "string", "info.serial"), h.sn],
-            ["model", stateDef("Model", "string", "info.hardware"), m.model ?? ""],
-            ["modelName", stateDef("Model name", "string", "info.hardware"), m.modelName],
-            ["codec", stateDef("Device family", "string", "text"), m.codec],
-            ["capabilities", stateDef("Capabilities", "string", "json"), JSON.stringify(m.capabilities)],
-            ["available", stateDef("Available", "boolean", "indicator.reachable"), true],
-            ["lastSeen", stateDef("Last seen", "number", "value.time"), null],
+            ['name', stateDef('Name', 'string', 'info.name'), m.name],
+            ['serialNumber', stateDef('Serial number', 'string', 'info.serial'), h.sn],
+            ['model', stateDef('Model', 'string', 'info.hardware'), m.model ?? ''],
+            ['modelName', stateDef('Model name', 'string', 'info.hardware'), m.modelName],
+            ['codec', stateDef('Device family', 'string', 'text'), m.codec],
+            ['capabilities', stateDef('Capabilities', 'string', 'json'), JSON.stringify(m.capabilities)],
+            ['available', stateDef('Available', 'boolean', 'indicator.reachable'), true],
+            ['lastSeen', stateDef('Last seen', 'number', 'value.time'), null],
         ];
         if (rec?.stationSn && rec.stationSn !== h.sn) {
-            info.push(["stationSn", stateDef("Station serial", "string", "text"), rec.stationSn]);
+            info.push(['stationSn', stateDef('Station serial', 'string', 'text'), rec.stationSn]);
         }
         for (const [name, common, value] of info) {
             await this.ensureState(`${oid}.info.${name}`, common);
-            if (value !== null && !(name === "available" && !initial)) {
+            if (value !== null && !(name === 'available' && !initial)) {
                 await this.setStateAsync(`${oid}.info.${name}`, value, true);
             }
         }
@@ -635,10 +659,10 @@ class EufyNext extends utils.Adapter {
             await this.buildCapability(h, cap);
         }
 
-        await this.ensureChannel(`${oid}.events`, "Events");
-        await this.ensureState(`${oid}.events.lastEvent`, stateDef("Last event", "string", "text"));
-        for (const ev of new Set(m.details.flatMap((c) => c.events))) {
-            if (ev !== "propertyChanged") {
+        await this.ensureChannel(`${oid}.events`, 'Events');
+        await this.ensureState(`${oid}.events.lastEvent`, stateDef('Last event', 'string', 'text'));
+        for (const ev of new Set(m.details.flatMap(c => c.events))) {
+            if (ev !== 'propertyChanged') {
                 await this.ensureEventObjects(`${oid}.events.${sanitizeId(ev)}`, ev);
             }
         }
@@ -659,30 +683,23 @@ class EufyNext extends utils.Adapter {
         const base = `${h.oid}.${sanitizeId(capAccessor)}`;
         await this.ensureChannel(base, humanize(cap.capability));
 
-        const plans = cap.actions.map((a) => planAction(cap, a));
+        const plans = cap.actions.map(a => planAction(cap, a));
         const boundReads = new Map(
-            plans.flatMap((p) => (p.kind === "bindRead" ? [[p.readAccessor, p.action.name] as const] : [])),
+            plans.flatMap(p => (p.kind === 'bindRead' ? [[p.readAccessor, p.action.name] as const] : [])),
         );
 
         for (const r of cap.reads) {
-            const { common, codec } = readCommon(r);
             const actionName = boundReads.get(r.accessor);
-            if (actionName) {
-                common.write = true;
-                if (common.role === "indicator") {
-                    common.role = "switch";
-                } else if (common.role.startsWith("value")) {
-                    common.role = common.role === "value" ? "level" : common.role.replace(/^value/, "level");
-                }
-            }
+            // a read driven by a stateful action is writable: derive its role as such
+            const { common, codec } = readCommon(actionName ? { ...r, writable: true } : r);
             const id = `${base}.${sanitizeId(r.accessor)}`;
             await this.ensureState(id, common, { property: r.property, kind: r.kind });
             const target: PropertyTarget = { id, codec, type: common.type, capAccessor, readAccessor: r.accessor };
-            const targets = (h.properties.get(r.property) ?? []).filter((t) => t.id !== id);
+            const targets = (h.properties.get(r.property) ?? []).filter(t => t.id !== id);
             h.properties.set(r.property, [...targets, target]);
 
             if (common.write) {
-                this.writeHandlers.set(`${this.namespace}.${id}`, async (val) => {
+                this.writeHandlers.set(`${this.namespace}.${id}`, async val => {
                     const v = fromStateValue(val, codec, common.type);
                     await this.writeRead(h, cap, r, v, actionName);
                 });
@@ -695,7 +712,7 @@ class EufyNext extends utils.Adapter {
         }
 
         for (const p of plans) {
-            if (p.kind === "skip" || p.kind === "bindRead") {
+            if (p.kind === 'skip' || p.kind === 'bindRead') {
                 continue;
             }
             const id = `${base}.${sanitizeId(p.action.name)}`;
@@ -703,15 +720,15 @@ class EufyNext extends utils.Adapter {
             const name = p.action.name;
             const args = p.action.args ?? [];
             const fullId = `${this.namespace}.${id}`;
-            if (p.kind === "button") {
+            if (p.kind === 'button') {
                 this.writeHandlers.set(fullId, async () => this.callAction(h, capAccessor, name, []));
-            } else if (p.kind === "single") {
+            } else if (p.kind === 'single') {
                 const type = p.common.type;
-                this.writeHandlers.set(fullId, async (val) =>
-                    this.callAction(h, capAccessor, name, [fromStateValue(val, "raw", type)]),
+                this.writeHandlers.set(fullId, async val =>
+                    this.callAction(h, capAccessor, name, [fromStateValue(val, 'raw', type)]),
                 );
             } else {
-                this.writeHandlers.set(fullId, async (val) =>
+                this.writeHandlers.set(fullId, async val =>
                     this.callAction(h, capAccessor, name, parseJsonArgs(val, args)),
                 );
             }
@@ -735,16 +752,27 @@ class EufyNext extends utils.Adapter {
             return;
         }
         const stale = Object.keys(objs)
-            .map((id) => id.slice(this.namespace.length + 1))
-            .filter((id) => !this.createdObjects.has(id) && !id.startsWith(`${h.oid}.events.`))
+            .map(id => id.slice(this.namespace.length + 1))
+            .filter(id => !this.createdObjects.has(id) && !id.startsWith(`${h.oid}.events.`))
             .sort((a, b) => b.length - a.length); // states before their channels
+        let removed = 0;
         for (const id of stale) {
-            this.log.debug(`Removing obsolete object ${id}`);
             this.writeHandlers.delete(`${this.namespace}.${id}`);
+            const custom = (objs[`${this.namespace}.${id}`]?.common as { custom?: Record<string, unknown> } | undefined)
+                ?.custom;
+            if (custom && Object.keys(custom).length) {
+                // History/InfluxDB/SQL settings would be lost for good — keep the object, tell the user
+                this.log.warn(
+                    `Object ${id} is no longer provided by the device but has custom settings (${Object.keys(custom).join(', ')}) — kept. Delete it manually if it is not needed.`,
+                );
+                continue;
+            }
+            this.log.debug(`Removing obsolete object ${id}`);
             await this.delObjectAsync(id);
+            removed++;
         }
-        if (stale.length) {
-            this.log.info(`${h.manifest.name}: removed ${stale.length} obsolete object(s)`);
+        if (removed) {
+            this.log.info(`${h.manifest.name}: removed ${removed} obsolete object(s)`);
         }
     }
 
@@ -753,33 +781,36 @@ class EufyNext extends utils.Adapter {
             return;
         }
         await this.ensureChannel(base, humanize(eventName));
-        await this.ensureState(`${base}.triggered`, stateDef("Triggered", "boolean", eventRole(eventName)));
-        await this.ensureState(`${base}.lastTriggered`, stateDef("Last triggered", "number", "value.time"));
-        await this.ensureState(`${base}.payload`, stateDef("Event payload", "string", "json"));
+        await this.ensureState(`${base}.triggered`, stateDef('Triggered', 'boolean', eventRole(eventName)));
+        await this.ensureState(`${base}.lastTriggered`, stateDef('Last triggered', 'number', 'value.time'));
+        await this.ensureState(`${base}.payload`, stateDef('Event payload', 'string', 'json'));
         this.createdObjects.add(base);
     }
 
     private async buildSnapshotObjects(h: DeviceHandle): Promise<void> {
-        const camera = this.capObject(h, "camera");
-        if (!camera || typeof camera.snapshotStored !== "function") {
+        const camera = this.capObject(h, 'camera');
+        if (!camera || typeof camera.snapshotStored !== 'function') {
             return;
         }
         const base = `${h.oid}.snapshot`;
-        await this.ensureChannel(base, "Snapshot");
-        await this.ensureState(`${base}.url`, stateDef("Snapshot URL (ioBroker files)", "string", "url"));
-        await this.ensureState(`${base}.updated`, stateDef("Snapshot updated", "number", "value.time"));
+        await this.ensureChannel(base, 'Snapshot');
+        await this.ensureState(`${base}.url`, stateDef('Snapshot URL (ioBroker files)', 'string', 'url'));
+        await this.ensureState(`${base}.updated`, stateDef('Snapshot updated', 'number', 'value.time'));
         if (this.config.snapshotDataUrl !== false) {
-            await this.ensureState(`${base}.dataUrl`, stateDef("Snapshot as data URL (for <img src>)", "string", "url"));
+            await this.ensureState(
+                `${base}.dataUrl`,
+                stateDef('Snapshot as data URL (for <img src>)', 'string', 'url'),
+            );
         }
         await this.ensureState(`${base}.refreshStored`, {
-            ...stateDef("Load latest event thumbnail", "boolean", "button"),
+            ...stateDef('Load latest event thumbnail', 'boolean', 'button'),
             read: false,
             write: true,
         });
         this.writeHandlers.set(`${this.namespace}.${base}.refreshStored`, () => this.storeSnapshot(h, false));
-        if (typeof camera.snapshotLive === "function") {
+        if (typeof camera.snapshotLive === 'function') {
             await this.ensureState(`${base}.refreshLive`, {
-                ...stateDef("Capture live snapshot (needs ffmpeg, wakes battery cameras)", "boolean", "button"),
+                ...stateDef('Capture live snapshot (needs ffmpeg, wakes battery cameras)', 'boolean', 'button'),
                 read: false,
                 write: true,
             });
@@ -791,12 +822,14 @@ class EufyNext extends utils.Adapter {
     private readonly thumbnailHinted = new Set<string>();
 
     /**
+     * @param h the device
+     * @param live capture a fresh frame instead of the stored event thumbnail
      * @param origin `event`: after a detection push; `button`: the user asked for it — failures are reported louder.
      */
-    private async storeSnapshot(h: DeviceHandle, live: boolean, origin: "event" | "button" = "button"): Promise<void> {
-        const camera = this.capObject(h, "camera");
-        const fn = camera?.[live ? "snapshotLive" : "snapshotStored"];
-        if (typeof fn !== "function") {
+    private async storeSnapshot(h: DeviceHandle, live: boolean, origin: 'event' | 'button' = 'button'): Promise<void> {
+        const camera = this.capObject(h, 'camera');
+        const fn = camera?.[live ? 'snapshotLive' : 'snapshotStored'];
+        if (typeof fn !== 'function') {
             return;
         }
         let img: unknown;
@@ -806,7 +839,7 @@ class EufyNext extends utils.Adapter {
             const why = errText(e);
             if (live) {
                 this.log.warn(`Live snapshot for ${h.manifest.name} failed: ${why}`);
-            } else if (origin === "button") {
+            } else if (origin === 'button') {
                 this.log.info(`No event thumbnail stored for ${h.manifest.name} yet: ${why}`);
             } else if (!this.thumbnailHinted.has(h.sn)) {
                 this.thumbnailHinted.add(h.sn);
@@ -832,7 +865,11 @@ class EufyNext extends utils.Adapter {
         await this.setStateAsync(`${h.oid}.snapshot.url`, `/files/${this.namespace}/${file}`, true);
         await this.setStateAsync(`${h.oid}.snapshot.updated`, Date.now(), true);
         if (this.config.snapshotDataUrl !== false) {
-            await this.setStateAsync(`${h.oid}.snapshot.dataUrl`, `data:image/jpeg;base64,${img.toString("base64")}`, true);
+            await this.setStateAsync(
+                `${h.oid}.snapshot.dataUrl`,
+                `data:image/jpeg;base64,${img.toString('base64')}`,
+                true,
+            );
         }
     }
 
@@ -850,15 +887,19 @@ class EufyNext extends utils.Adapter {
             return;
         }
         const base = `${h.oid}.station`;
-        await this.ensureChannel(base, "Station");
+        await this.ensureChannel(base, 'Station');
         await this.ensureState(
             `${base}.p2pConnected`,
-            stateDef("P2P session open (opened on demand, closed when idle — not a fault)", "boolean", "indicator.connected"),
+            stateDef(
+                'P2P session open (opened on demand, closed when idle — not a fault)',
+                'boolean',
+                'indicator.connected',
+            ),
         );
         // The SDK restarts HomeBases and cameras that are their own station (verified on hardware).
-        if (h.manifest.codec === "station" || h.manifest.codec === "camera") {
+        if (h.manifest.codec === 'station' || h.manifest.codec === 'camera') {
             await this.ensureState(`${base}.reboot`, {
-                ...stateDef("Reboot (offline for a minute or two)", "boolean", "button"),
+                ...stateDef('Reboot (offline for a minute or two)', 'boolean', 'button'),
                 read: false,
                 write: true,
             });
@@ -878,9 +919,9 @@ class EufyNext extends utils.Adapter {
 
     /** `dev.ptz().preset()` — the preset sub-API, when this camera has one. */
     private ptzPresets(h: DeviceHandle): Record<string, unknown> | undefined {
-        const ptz = this.capObject(h, "ptz");
+        const ptz = this.capObject(h, 'ptz');
         const fn = ptz?.preset;
-        if (typeof fn !== "function") {
+        if (typeof fn !== 'function') {
             return undefined;
         }
         try {
@@ -896,28 +937,32 @@ class EufyNext extends utils.Adapter {
             return;
         }
         const base = `${h.oid}.ptz`;
-        await this.ensureChannel(base, "Ptz");
+        await this.ensureChannel(base, 'Ptz');
         const verbs: [string, string, string][] = [
-            ["goto", "presetGoto", "Move to preset (id)"],
-            ["save", "presetSave", "Save current position as preset (id)"],
-            ["delete", "presetDelete", "Delete preset (id)"],
+            ['goto', 'presetGoto', 'Move to preset (id)'],
+            ['save', 'presetSave', 'Save current position as preset (id)'],
+            ['delete', 'presetDelete', 'Delete preset (id)'],
         ];
         for (const [verb, id, name] of verbs) {
-            if (typeof presets[verb] !== "function") {
+            if (typeof presets[verb] !== 'function') {
                 continue;
             }
-            await this.ensureState(`${base}.${id}`, { ...stateDef(name, "number", "level"), read: false, write: true });
-            this.writeHandlers.set(`${this.namespace}.${base}.${id}`, async (val) => {
-                await this.callPath(h, "ptz", `preset.${verb}`, [Number(val)]);
-                if (verb !== "goto") {
+            await this.ensureState(
+                `${base}.${id}`,
+                { ...stateDef(name, 'number', 'level'), write: true },
+                { command: true },
+            );
+            this.writeHandlers.set(`${this.namespace}.${base}.${id}`, async val => {
+                await this.callPath(h, 'ptz', `preset.${verb}`, [Number(val)]);
+                if (verb !== 'goto') {
                     await this.refreshPresetList(h);
                 }
             });
         }
-        if (typeof presets.list === "function") {
-            await this.ensureState(`${base}.presets`, stateDef("Stored presets", "string", "json"));
+        if (typeof presets.list === 'function') {
+            await this.ensureState(`${base}.presets`, stateDef('Stored presets', 'string', 'json'));
             await this.ensureState(`${base}.presetsRefresh`, {
-                ...stateDef("Read stored presets from the camera", "boolean", "button"),
+                ...stateDef('Read stored presets from the camera', 'boolean', 'button'),
                 read: false,
                 write: true,
             });
@@ -929,34 +974,37 @@ class EufyNext extends utils.Adapter {
         if (!this.createdObjects.has(`${h.oid}.ptz.presets`)) {
             return;
         }
-        const list = await this.callPath(h, "ptz", "preset.list", []);
+        const list = await this.callPath(h, 'ptz', 'preset.list', []);
         await this.setStateAsync(`${h.oid}.ptz.presets`, JSON.stringify(list ?? []), true);
     }
 
     private async buildQuickResponseObjects(h: DeviceHandle): Promise<void> {
-        const doorbell = this.capObject(h, "doorbell");
-        if (!doorbell || typeof doorbell.playQuickResponse !== "function") {
+        const doorbell = this.capObject(h, 'doorbell');
+        if (!doorbell || typeof doorbell.playQuickResponse !== 'function') {
             return;
         }
         const base = `${h.oid}.doorbell`;
-        await this.ensureChannel(base, "Doorbell");
-        await this.ensureState(`${base}.quickResponse`, {
-            ...stateDef("Play quick response (voice id)", "number", "level"),
-            read: false,
-            write: true,
+        await this.ensureChannel(base, 'Doorbell');
+        await this.ensureState(
+            `${base}.quickResponse`,
+            {
+                ...stateDef('Play quick response (voice id)', 'number', 'level'),
+                write: true,
+            },
+            { command: true },
+        );
+        this.writeHandlers.set(`${this.namespace}.${base}.quickResponse`, async val => {
+            await this.callPath(h, 'doorbell', 'playQuickResponse', [Number(val)]);
         });
-        this.writeHandlers.set(`${this.namespace}.${base}.quickResponse`, async (val) => {
-            await this.callPath(h, "doorbell", "playQuickResponse", [Number(val)]);
-        });
-        if (typeof doorbell.quickResponses === "function") {
-            await this.ensureState(`${base}.quickResponses`, stateDef("Available quick responses", "string", "json"));
+        if (typeof doorbell.quickResponses === 'function') {
+            await this.ensureState(`${base}.quickResponses`, stateDef('Available quick responses', 'string', 'json'));
             await this.ensureState(`${base}.quickResponsesRefresh`, {
-                ...stateDef("Read quick responses from the doorbell", "boolean", "button"),
+                ...stateDef('Read quick responses from the doorbell', 'boolean', 'button'),
                 read: false,
                 write: true,
             });
             this.writeHandlers.set(`${this.namespace}.${base}.quickResponsesRefresh`, async () => {
-                const list = await this.callPath(h, "doorbell", "quickResponses", []);
+                const list = await this.callPath(h, 'doorbell', 'quickResponses', []);
                 await this.setStateAsync(`${base}.quickResponses`, JSON.stringify(list ?? []), true);
             });
         }
@@ -968,20 +1016,20 @@ class EufyNext extends utils.Adapter {
      */
     private async callPath(h: DeviceHandle, capability: string, action: string, args: unknown[]): Promise<unknown> {
         let target: unknown = this.capObject(h, capability);
-        const segments = action.split(".");
+        const segments = action.split('.');
         for (const seg of segments.slice(0, -1)) {
             const sub = (target as Record<string, unknown> | undefined)?.[seg];
-            if (typeof sub !== "function") {
+            if (typeof sub !== 'function') {
                 throw new Error(`${capability}.${action} is not available on ${h.sn}`);
             }
             target = await (sub as () => unknown).call(target);
         }
         const last = segments[segments.length - 1];
         const fn = (target as Record<string, unknown> | undefined)?.[last];
-        if (typeof fn !== "function") {
+        if (typeof fn !== 'function') {
             throw new Error(`${capability}.${action} is not available on ${h.sn}`);
         }
-        this.log.debug(`${h.sn}: ${capability}.${action}(${args.map((a) => JSON.stringify(a)).join(", ")})`);
+        this.log.debug(`${h.sn}: ${capability}.${action}(${args.map(a => JSON.stringify(a)).join(', ')})`);
         return await (fn as (...a: unknown[]) => unknown).apply(target, args);
     }
 
@@ -995,7 +1043,7 @@ class EufyNext extends utils.Adapter {
         }
         let binary: string | null = null;
         try {
-            binary = require("go2rtc-static") as string | null;
+            binary = requireOptional('go2rtc-static');
         } catch {
             binary = null;
         }
@@ -1017,32 +1065,37 @@ class EufyNext extends utils.Adapter {
             rtspUsername: this.config.liveRtspUsername?.trim() || undefined,
             rtspPassword: this.config.liveRtspPassword || undefined,
             https: this.liveCerts,
+            configFile: path.join(this.dataDir(), 'go2rtc.json'),
+            timers: this.adapterTimers(),
         };
         return this.go2rtcOpts;
     }
 
     private async buildLivestreamObjects(h: DeviceHandle): Promise<void> {
-        const camera = this.capObject(h, "camera");
-        if (this.config.liveEnabled === false || !camera || typeof camera.live !== "function") {
+        const camera = this.capObject(h, 'camera');
+        if (this.config.liveEnabled === false || !camera || typeof camera.live !== 'function') {
             return;
         }
         const base = `${h.oid}.livestream`;
-        await this.ensureChannel(base, "Livestream");
+        await this.ensureChannel(base, 'Livestream');
         await this.ensureState(`${base}.start`, {
-            ...stateDef("Start livestream", "boolean", "button.start"),
+            ...stateDef('Start livestream', 'boolean', 'button.start'),
             read: false,
             write: true,
         });
         await this.ensureState(`${base}.stop`, {
-            ...stateDef("Stop livestream", "boolean", "button.stop"),
+            ...stateDef('Stop livestream', 'boolean', 'button.stop'),
             read: false,
             write: true,
         });
-        await this.ensureState(`${base}.url`, stateDef("Player URL (only while streaming)", "string", "url"));
-        await this.ensureState(`${base}.rtsp`, stateDef("RTSP URL (only while streaming)", "string", "url"));
-        await this.ensureState(`${base}.active`, stateDef("Streaming", "boolean", "indicator"));
+        await this.ensureState(`${base}.url`, stateDef('Player URL (only while streaming)', 'string', 'url'));
+        await this.ensureState(`${base}.rtsp`, stateDef('RTSP URL (only while streaming)', 'string', 'url'));
+        await this.ensureState(`${base}.active`, stateDef('Streaming', 'boolean', 'indicator'));
         this.writeHandlers.set(`${this.namespace}.${base}.start`, () => this.startLive(h));
-        this.writeHandlers.set(`${this.namespace}.${base}.stop`, async () => this.liveSessions.get(h.sn)?.stop("stopped"));
+        this.writeHandlers.set(`${this.namespace}.${base}.stop`, () => {
+            this.liveSessions.get(h.sn)?.stop('stopped');
+            return Promise.resolve();
+        });
         if (!this.liveSessions.has(h.sn)) {
             await this.setLiveStates(h, undefined);
         }
@@ -1056,9 +1109,9 @@ class EufyNext extends utils.Adapter {
                 return undefined;
             }
             this.go2rtc = new Go2rtcServer(opts, {
-                debug: (m) => this.log.debug(m),
-                info: (m) => this.log.info(m),
-                warn: (m) => this.log.warn(m),
+                debug: m => this.log.debug(m),
+                info: m => this.log.info(m),
+                warn: m => this.log.warn(m),
             });
         }
         return this.go2rtc;
@@ -1066,8 +1119,8 @@ class EufyNext extends utils.Adapter {
 
     private async setLiveStates(h: DeviceHandle, urls: { url: string; rtsp: string } | undefined): Promise<void> {
         const base = `${h.oid}.livestream`;
-        await this.setStateAsync(`${base}.url`, urls?.url ?? "", true);
-        await this.setStateAsync(`${base}.rtsp`, urls?.rtsp ?? "", true);
+        await this.setStateAsync(`${base}.url`, urls?.url ?? '', true);
+        await this.setStateAsync(`${base}.rtsp`, urls?.rtsp ?? '', true);
         await this.setStateAsync(`${base}.active`, !!urls, true);
     }
 
@@ -1079,46 +1132,47 @@ class EufyNext extends utils.Adapter {
         const server = this.go2rtcServer();
         const opts = this.go2rtcOpts;
         if (!server || !opts) {
-            throw new Error("livestream needs ffmpeg and go2rtc, but at least one is not available on this host");
+            throw new Error('livestream needs ffmpeg and go2rtc, but at least one is not available on this host');
         }
-        const camera = this.capObject(h, "camera");
+        const camera = this.capObject(h, 'camera');
         const live = camera?.live;
-        if (typeof live !== "function") {
-            throw new Error("this camera offers no livestream");
+        if (typeof live !== 'function') {
+            throw new Error('this camera offers no livestream');
         }
         const stream = h.oid;
         await server.ensure(stream);
         this.log.info(`${h.manifest.name}: starting livestream`);
         let consumer: LiveConsumerLike;
         try {
-            consumer = (await (live as () => Promise<LiveConsumerLike>).call(camera)) as LiveConsumerLike;
+            consumer = await (live as () => Promise<LiveConsumerLike>).call(camera);
         } catch (e) {
             await this.setLiveStates(h, undefined);
             throw new Error(`camera did not start streaming: ${errText(e)}`);
         }
-        const maxSec = Number(this.config.liveMaxDurationSec);
+        const maxSec = clampNumber(this.config.liveMaxDurationSec, 0, 86_400, 120);
         let snapshotTimer: ioBroker.Timeout | undefined;
         const session = new LiveSession(consumer, {
             stream,
             ffmpeg: opts.ffmpeg,
             target: pushUrl(opts, stream),
-            maxDurationMs: (Number.isFinite(maxSec) && maxSec >= 0 ? maxSec : 120) * 1000,
-            log: { debug: (m) => this.log.debug(m), info: (m) => this.log.info(m), warn: (m) => this.log.warn(m) },
+            maxDurationMs: Math.min(maxSec * 1000, MAX_TIMER_MS),
+            log: { debug: m => this.log.debug(m), info: m => this.log.info(m), warn: m => this.log.warn(m) },
+            timers: this.adapterTimers(),
             onActive: () => {
                 const urls = playerUrls(opts, stream);
                 this.log.info(`${h.manifest.name}: livestream running — ${urls.url}`);
-                void this.setLiveStates(h, urls);
+                this.bg(this.setLiveStates(h, urls));
                 if (this.config.liveSnapshot !== false) {
                     // A still from the running stream: a fresh tile picture without waking the camera again.
                     snapshotTimer = this.setTimeout(() => {
                         void server
                             .frame(stream)
-                            .then((jpg) => (jpg.length ? this.saveSnapshot(h, jpg) : undefined))
-                            .catch((e) => this.log.debug(`No frame from go2rtc for ${h.sn}: ${errText(e)}`));
+                            .then(jpg => (jpg.length ? this.saveSnapshot(h, jpg) : undefined))
+                            .catch(e => this.log.debug(`No frame from go2rtc for ${h.sn}: ${errText(e)}`));
                     }, 4000);
                 }
             },
-            onEnded: (reason) => {
+            onEnded: reason => {
                 if (snapshotTimer) {
                     this.clearTimeout(snapshotTimer);
                 }
@@ -1126,7 +1180,7 @@ class EufyNext extends utils.Adapter {
                     this.liveSessions.delete(h.sn);
                 }
                 this.log.info(`${h.manifest.name}: livestream ended (${reason})`);
-                void this.setLiveStates(h, undefined);
+                this.bg(this.setLiveStates(h, undefined));
             },
         });
         this.liveSessions.set(h.sn, session);
@@ -1138,8 +1192,8 @@ class EufyNext extends utils.Adapter {
             return;
         }
         await this.setForeignObjectNotExistsAsync(this.namespace, {
-            type: "meta",
-            common: { name: "eufy snapshots", type: "meta.user" },
+            type: 'meta',
+            common: { name: 'eufy snapshots', type: 'meta.user' },
             native: {},
         });
         this.filesMetaReady = true;
@@ -1152,7 +1206,7 @@ class EufyNext extends utils.Adapter {
     /** `dev[accessor]()` — the capability object, re-fetched each time because a re-bind replaces it. */
     private capObject(h: DeviceHandle, accessor: string): Record<string, unknown> | undefined {
         const fn = (h.dev as unknown as Record<string, unknown>)[accessor];
-        if (typeof fn !== "function") {
+        if (typeof fn !== 'function') {
             return undefined;
         }
         try {
@@ -1175,7 +1229,7 @@ class EufyNext extends utils.Adapter {
         for (const t of [...h.properties.values()].flat()) {
             const v = this.readGetter(h, t.capAccessor, t.readAccessor);
             if (v !== undefined) {
-                void this.setStateAsync(t.id, toStateValue(v, t.codec, t.type), true);
+                this.bg(this.setStateAsync(t.id, toStateValue(v, t.codec, t.type), true));
             }
         }
     }
@@ -1183,10 +1237,10 @@ class EufyNext extends utils.Adapter {
     private async callAction(h: DeviceHandle, capAccessor: string, name: string, args: unknown[]): Promise<void> {
         const obj = this.capObject(h, capAccessor);
         const fn = obj?.[name];
-        if (typeof fn !== "function") {
+        if (typeof fn !== 'function') {
             throw new Error(`${capAccessor}.${name} is not available on ${h.sn}`);
         }
-        this.log.debug(`${h.sn}: ${capAccessor}.${name}(${args.map((a) => JSON.stringify(a)).join(", ")})`);
+        this.log.debug(`${h.sn}: ${capAccessor}.${name}(${args.map(a => JSON.stringify(a)).join(', ')})`);
         await (fn as (...a: unknown[]) => unknown).apply(obj, args);
     }
 
@@ -1203,13 +1257,13 @@ class EufyNext extends utils.Adapter {
             return this.callAction(h, capAccessor, actionName, [value]);
         }
         const setter = `set${r.accessor.charAt(0).toUpperCase()}${r.accessor.slice(1)}`;
-        if (typeof this.capObject(h, capAccessor)?.[setter] === "function") {
+        if (typeof this.capObject(h, capAccessor)?.[setter] === 'function') {
             return this.callAction(h, capAccessor, setter, [value]);
         }
         if (!this.eufy) {
-            throw new Error("not connected");
+            throw new Error('not connected');
         }
-        if (typeof value !== "boolean" && typeof value !== "number" && typeof value !== "string") {
+        if (typeof value !== 'boolean' && typeof value !== 'number' && typeof value !== 'string') {
             throw new Error(`unsupported value for ${r.property}: ${JSON.stringify(value)}`);
         }
         await this.eufy.setProperty(h.sn, r.property, value);
@@ -1226,19 +1280,19 @@ class EufyNext extends utils.Adapter {
         const local = id.slice(this.namespace.length + 1);
         try {
             switch (local) {
-                case "auth.verifyCode":
+                case 'auth.verifyCode':
                     if (state.val) {
                         await this.submitVerifyCode(String(state.val));
-                        await this.setStateAsync(local, "", true);
+                        await this.setStateAsync(local, '', true);
                     }
                     return;
-                case "auth.captchaAnswer":
+                case 'auth.captchaAnswer':
                     if (state.val) {
                         await this.solveCaptcha(String(state.val));
-                        await this.setStateAsync(local, "", true);
+                        await this.setStateAsync(local, '', true);
                     }
                     return;
-                case "auth.relogin":
+                case 'auth.relogin':
                     await this.relogin();
                     return;
             }
@@ -1253,20 +1307,22 @@ class EufyNext extends utils.Adapter {
             }
             await handler(state.val);
             const obj = await this.getObjectAsync(local);
-            if (obj?.common && (obj.common as ioBroker.StateCommon).role === "button") {
+            const common = obj?.common as ioBroker.StateCommon | undefined;
+            const native = (obj?.native ?? {}) as { action?: string; command?: boolean };
+            if (common?.role?.startsWith('button')) {
                 await this.setStateAsync(local, false, true);
-            } else if (!(obj?.common as ioBroker.StateCommon | undefined)?.read) {
-                // write-only control: acknowledge what was sent
+            } else if (native.action || native.command || !common?.read) {
+                // command state: acknowledge what was sent (the state keeps the last command)
                 await this.setStateAsync(local, state.val, true);
             }
-            // readable states are acknowledged by the device echo (propertyChanged)
+            // readable device values are acknowledged by the device echo (propertyChanged)
         } catch (e) {
             this.log.warn(`Writing ${local} = ${JSON.stringify(state.val)} failed: ${errText(e)}`);
         }
     }
 
     private deviceFor(sn: unknown): DeviceHandle {
-        const h = typeof sn === "string" ? this.devices.get(sn) : undefined;
+        const h = typeof sn === 'string' ? this.devices.get(sn) : undefined;
         if (!h) {
             throw new Error(`unknown device ${String(sn)}`);
         }
@@ -1285,73 +1341,80 @@ class EufyNext extends utils.Adapter {
         };
         try {
             switch (obj.command) {
-                case "verifyCode": {
-                    const code = String(msg.code ?? "").trim();
+                case 'verifyCode': {
+                    const code = str(msg.code).trim();
                     if (!code) {
-                        return reply({ error: "Please enter the verification code first." });
+                        return reply({ error: 'Please enter the verification code first.' });
                     }
                     const status = await this.submitVerifyCode(code);
                     return reply(
-                        status === "ok"
-                            ? { result: "Logged in successfully." }
+                        status === 'ok'
+                            ? { result: 'Logged in successfully.' }
                             : { error: `Login not finished yet: ${status}` },
                     );
                 }
-                case "captcha": {
-                    const answer = String(msg.answer ?? "").trim();
+                case 'captcha': {
+                    const answer = str(msg.answer).trim();
                     if (!answer) {
-                        return reply({ error: "Please enter the captcha characters first." });
+                        return reply({ error: 'Please enter the captcha characters first.' });
                     }
                     const status = await this.solveCaptcha(answer);
                     return reply(
-                        status === "ok"
-                            ? { result: "Logged in successfully." }
+                        status === 'ok'
+                            ? { result: 'Logged in successfully.' }
                             : { error: `Login not finished yet: ${status}` },
                     );
                 }
-                case "relogin":
+                case 'relogin':
                     await this.relogin();
-                    return reply({ result: "Login restarted — check the login status." });
-                case "loginStatus": {
-                    const status = await this.getStateAsync("info.loginStatus");
-                    const message = await this.getStateAsync("info.loginMessage");
+                    return reply({ result: 'Login restarted — check the login status.' });
+                case 'loginStatus': {
+                    const status = await this.getStateAsync('info.loginStatus');
+                    const message = await this.getStateAsync('info.loginMessage');
                     // textSendTo renders the reply as plain text.
-                    return reply(`${String(status?.val ?? "unknown")}: ${String(message?.val ?? "")}`);
+                    return reply(`${String(status?.val ?? 'unknown')}: ${String(message?.val ?? '')}`);
                 }
-                case "captchaImage": {
+                case 'captchaImage': {
                     // imageSendTo in jsonConfig renders the reply directly as <img src>.
-                    const img = await this.getStateAsync("info.captchaImage");
-                    return reply(String(img?.val ?? ""));
+                    const img = await this.getStateAsync('info.captchaImage');
+                    return reply(String(img?.val ?? ''));
                 }
-                case "listActions": {
+                case 'listActions': {
                     // What callAction can reach on a device: described and undescribed actions per capability.
                     const h = this.deviceFor(msg.sn);
                     return reply({
                         result: Object.fromEntries(
                             h.manifest.details
-                                .filter((c) => c.accessor && (c.actions.length || c.undescribedActions.length))
-                                .map((c) => [
+                                .filter(c => c.accessor && (c.actions.length || c.undescribedActions.length))
+                                .map(c => [
                                     c.accessor,
                                     {
-                                        described: c.actions.map((a) => ({ name: a.name, form: a.form, args: a.args })),
+                                        described: c.actions.map(a => ({ name: a.name, form: a.form, args: a.args })),
                                         undescribed: c.undescribedActions,
                                     },
                                 ]),
                         ),
                     });
                 }
-                case "callAction": {
+                case 'callAction': {
                     // Any action of a capability, including those the SDK does not describe (ptz.rotate,
                     // ptz.preset.list, doorbell.quickResponses, smartLight.setEffect …). Args are positional.
                     const h = this.deviceFor(msg.sn);
-                    const capability = String(msg.capability ?? "");
-                    const action = String(msg.action ?? "");
-                    const allowed = h.manifest.details.find((c) => c.accessor === capability);
-                    const root = action.split(".")[0];
-                    if (!allowed || ![...allowed.actions.map((a) => a.name), ...allowed.undescribedActions].includes(root)) {
+                    const capability = str(msg.capability);
+                    const action = str(msg.action);
+                    const allowed = h.manifest.details.find(c => c.accessor === capability);
+                    const root = action.split('.')[0];
+                    if (
+                        !allowed ||
+                        ![...allowed.actions.map(a => a.name), ...allowed.undescribedActions].includes(root)
+                    ) {
                         return reply({ error: `${capability}.${root} is not an action of ${h.sn} (see listActions)` });
                     }
-                    const args = Array.isArray(msg.args) ? (msg.args as unknown[]) : msg.args === undefined ? [] : [msg.args];
+                    const args = Array.isArray(msg.args)
+                        ? (msg.args as unknown[])
+                        : msg.args === undefined
+                          ? []
+                          : [msg.args];
                     const result = await this.callPath(h, capability, action, args);
                     return reply({ result: toJsonSafe(result) });
                 }
@@ -1371,14 +1434,14 @@ class EufyNext extends utils.Adapter {
         if (this.createdObjects.has(id)) {
             return;
         }
-        await this.extendObjectAsync(id, { type: "channel", common: { name }, native: {} });
+        await this.extendObjectAsync(id, { type: 'channel', common: { name }, native: {} });
         this.createdObjects.add(id);
     }
 
     private async ensureState(id: string, common: StateCommon, native: Record<string, unknown> = {}): Promise<void> {
         const clean = Object.fromEntries(Object.entries(common).filter(([, v]) => v !== undefined));
         await this.extendObjectAsync(id, {
-            type: "state",
+            type: 'state',
             common: clean as unknown as ioBroker.StateCommon,
             native: JSON.parse(JSON.stringify(native)) as Record<string, unknown>,
         });
@@ -1391,16 +1454,16 @@ function stateDef(name: string, type: ioBroker.CommonType, role: string): StateC
 }
 
 function eventRole(eventName: string): string {
-    if (eventName === "motion") {
-        return "sensor.motion";
+    if (eventName === 'motion') {
+        return 'sensor.motion';
     }
-    if (eventName === "doorbellPress") {
-        return "sensor.switch";
+    if (eventName === 'doorbellPress') {
+        return 'sensor';
     }
-    if (eventName === "alarm") {
-        return "sensor.alarm";
+    if (eventName === 'alarm') {
+        return 'sensor.alarm';
     }
-    return "indicator";
+    return 'indicator';
 }
 
 /** Make an SDK return value fit a sendTo reply: Buffers become base64, functions are dropped. */
@@ -1410,18 +1473,48 @@ function toJsonSafe(v: unknown): unknown {
     }
     return JSON.parse(
         JSON.stringify(v, (_k, x: unknown) => {
-            if (typeof x === "function") {
+            if (typeof x === 'function') {
                 return undefined;
             }
-            if (typeof x === "bigint") {
+            if (typeof x === 'bigint') {
                 return Number(x);
             }
-            if (x && typeof x === "object" && (x as { type?: string }).type === "Buffer" && Array.isArray((x as { data?: unknown }).data)) {
-                return Buffer.from((x as { data: number[] }).data).toString("base64");
+            if (
+                x &&
+                typeof x === 'object' &&
+                (x as { type?: string }).type === 'Buffer' &&
+                Array.isArray((x as { data?: unknown }).data)
+            ) {
+                return Buffer.from((x as { data: number[] }).data).toString('base64');
             }
             return x;
         }),
     ) as unknown;
+}
+
+/** A message field as trimmed-later string; anything that is not a primitive counts as empty. */
+function str(v: unknown): string {
+    return typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? String(v) : '';
+}
+
+/** The default export of an optional CommonJS package (go2rtc-static / ffmpeg-static export a path). */
+function requireOptional(name: string): string | null {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const v: unknown = require(name);
+        return typeof v === 'string' ? v : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Clamp a configured number into [min, max]; anything unparsable becomes `fallback`. */
+export function clampNumber(v: unknown, min: number, max: number, fallback: number): number {
+    const n = Number(v);
+    if (!Number.isFinite(n)) {
+        return fallback;
+    }
+    return Math.min(max, Math.max(min, n));
 }
 
 function errText(e: unknown): string {
@@ -1432,21 +1525,23 @@ function fmt(m: string, a: unknown[]): string {
     if (!a.length) {
         return m;
     }
-    return `${m} ${a
-        .map((x) => {
-            if (x instanceof Error) {
-                return x.message;
-            }
-            if (typeof x === "object") {
-                try {
-                    return JSON.stringify(x);
-                } catch {
-                    return String(x);
-                }
-            }
+    const part = (x: unknown): string => {
+        if (x instanceof Error) {
+            return x.message;
+        }
+        if (typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean' || typeof x === 'bigint') {
             return String(x);
-        })
-        .join(" ")}`;
+        }
+        if (x === undefined || x === null || typeof x === 'symbol' || typeof x === 'function') {
+            return String(x);
+        }
+        try {
+            return JSON.stringify(x);
+        } catch {
+            return Object.prototype.toString.call(x);
+        }
+    };
+    return `${m} ${a.map(part).join(' ')}`;
 }
 
 if (require.main !== module) {
