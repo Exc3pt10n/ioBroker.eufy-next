@@ -47,7 +47,7 @@
     "Reset event states after (seconds, 0 = never)": "Gebeurtenisstatussen resetten na (seconden, 0 = nooit)",
     "Save camera thumbnail on motion/person/doorbell events": "Camera-miniatuur opslaan bij beweging/persoon/deurbel",
     "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)": "Snapshot ook als data-URL aanbieden (snapshot.dataUrl, voor vis-afbeelding/HTML-widgets)",
-    "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)": "Pad naar ffmpeg (optioneel; standaard: ffmpeg uit PATH, anders de meegeleverde)",
+    "Path to ffmpeg (optional; default: the bundled ffmpeg)": "Pad naar ffmpeg (optioneel; standaard: de meegeleverde ffmpeg)",
     "Ignore devices (serial numbers, comma separated)": "Apparaten negeren (serienummers, kommagescheiden)",
     "Client identity (openudid, optional)": "Clientidentiteit (openudid, optioneel)",
     "Leave empty — a stable random identity is generated per instance.": "Leeg laten — per instantie wordt een vaste willekeurige identiteit aangemaakt.",

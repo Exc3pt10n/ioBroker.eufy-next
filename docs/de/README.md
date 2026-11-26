@@ -7,13 +7,9 @@ der englischen [README](../../README.md).
 
 > Unabhängiges, inoffizielles Projekt – nicht mit Anker Innovations oder eufy verbunden.
 
-## Installation
+## Verfügbarkeit
 
-Der Adapter wird über npm als `iobroker.eufy-next` verteilt (noch nicht im offiziellen ioBroker-Repository):
-
-- Admin → Adapter → *Installieren aus eigener URL* → Reiter **npm** → `iobroker.eufy-next`, oder
-- auf der Kommandozeile: `iobroker url iobroker.eufy-next`
-
+Der Adapter wird über npm als `iobroker.eufy-next` verteilt und ist (noch) nicht im offiziellen ioBroker-Repository.
 Wer bisher aus GitHub installiert hat, installiert einmal neu aus npm; Einstellungen und Objekte bleiben erhalten.
 
 ## Einrichtung

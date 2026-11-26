@@ -431,7 +431,7 @@
                 },
                 "ffmpegPath": {
                     "type": "text",
-                    "label": "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)",
+                    "label": "Path to ffmpeg (optional; default: the bundled ffmpeg)",
                     "newLine": true,
                     "xs": 12,
                     "sm": 12,

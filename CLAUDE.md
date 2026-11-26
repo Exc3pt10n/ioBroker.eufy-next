@@ -26,6 +26,10 @@ The adapter is TypeScript, compiled to CommonJS (`build/`), and loads the SDK wi
   the SDK can produce.
 - Log messages are English. Admin texts live in `admin/i18n/<lang>/translations.json` (11 languages).
 - Background promises go through `this.bg(...)` (logs a rejection); timers use the adapter's `this.setTimeout`.
+- ioBroker repository checker rules: no plain `setTimeout`/`clearTimeout` and no hand-written sleep promises in
+  `src/` (use the adapter's timers; `node:timers` only as the documented fallback while unloading), no
+  `process.env`, no installation commands in `README.md`, `.commitinfo` in `.gitignore`. ffmpeg is the configured
+  path, else the bundled `ffmpeg-static`, else plain `ffmpeg`.
 
 ## Tests
 

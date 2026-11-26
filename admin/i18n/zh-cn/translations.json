@@ -47,7 +47,7 @@
     "Reset event states after (seconds, 0 = never)": "事件状态重置时间（秒，0 = 从不）",
     "Save camera thumbnail on motion/person/doorbell events": "在移动 / 人员 / 门铃事件时保存摄像头缩略图",
     "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)": "同时以 data URL 提供快照（snapshot.dataUrl，用于 vis 图片 / HTML 组件）",
-    "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)": "ffmpeg 路径（可选；默认：PATH 中的 ffmpeg，否则使用内置版本）",
+    "Path to ffmpeg (optional; default: the bundled ffmpeg)": "ffmpeg 路径（可选；默认：内置 ffmpeg）",
     "Ignore devices (serial numbers, comma separated)": "忽略设备（序列号，逗号分隔）",
     "Client identity (openudid, optional)": "客户端标识（openudid，可选）",
     "Leave empty — a stable random identity is generated per instance.": "留空 — 每个实例会生成一个固定的随机标识。",
