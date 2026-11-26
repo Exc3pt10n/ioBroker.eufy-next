@@ -73,6 +73,53 @@ test("every SDK action gets a plan; stateful single-arg actions bind to their re
     }
 });
 
+// Role / attribute rules of the ioBroker adapter checklist (stateroles.md), applied to every state the mapping can
+// produce from the installed SDK.
+function checkRole(where, c) {
+    const r = c.role;
+    if (r.startsWith('value')) {
+        assert.equal(c.type, 'number', `${where}: ${r} needs type number`);
+        assert.equal(c.write, false, `${where}: ${r} must not be writable`);
+    }
+    if (r.startsWith('level')) {
+        assert.equal(c.type, 'number', `${where}: ${r} needs type number`);
+        assert.equal(c.read, true, `${where}: ${r} must be readable`);
+        assert.equal(c.write, true, `${where}: ${r} must be writable`);
+    }
+    if (r.startsWith('switch')) {
+        assert.equal(c.type, 'boolean', where);
+        assert.equal(c.read, true, `${where}: ${r} must be readable`);
+        assert.equal(c.write, true, where);
+    }
+    if (r.startsWith('indicator') || r.startsWith('sensor')) {
+        assert.equal(c.type, 'boolean', where);
+        assert.equal(c.write, false, where);
+    }
+    if (r === 'button') {
+        assert.equal(c.read, false, where);
+        assert.equal(c.write, true, where);
+    }
+    // bare level.mode / value.mode and value.brightness (lux) are not valid for these values
+    assert.ok(!['level.mode', 'value.mode', 'value.brightness'].includes(r), `${where}: role ${r}`);
+}
+
+test('every generated state satisfies the role / attribute rules', () => {
+    for (const cap of details) {
+        for (const r of cap.reads) {
+            const { common } = m.readCommon(r);
+            // a read bound to a stateful action becomes writable in the adapter: check both forms
+            checkRole(`${cap.accessor}.${r.accessor}`, common);
+            checkRole(`${cap.accessor}.${r.accessor} (writable)`, m.readCommon({ ...r, writable: true }).common);
+        }
+        for (const a of cap.actions) {
+            const p = m.planAction(cap, a);
+            if (p.common) {
+                checkRole(`${cap.accessor}.${a.name}`, p.common);
+            }
+        }
+    }
+});
+
 test("light: isOn is a switch driven by light.set, brightness a dimmer", () => {
     const light = details.find((d) => d.accessor === "light");
     assert.ok(light);

@@ -1,63 +1,48 @@
 {
-    "i18n": false,
+    "i18n": true,
     "type": "tabs",
     "items": {
         "account": {
             "type": "panel",
-            "label": {
-                "en": "Account",
-                "de": "Konto"
-            },
+            "label": "Account",
             "items": {
                 "hdrAccount": {
                     "type": "header",
                     "size": 4,
-                    "text": {
-                        "en": "eufy account",
-                        "de": "eufy-Konto"
-                    }
+                    "text": "eufy account"
                 },
                 "email": {
                     "type": "text",
-                    "label": {
-                        "en": "E-mail",
-                        "de": "E-Mail"
-                    },
+                    "label": "E-mail",
                     "xs": 12,
                     "sm": 12,
                     "md": 6,
                     "lg": 4,
-                    "newLine": true
+                    "newLine": true,
+                    "xl": 4
                 },
                 "password": {
                     "type": "password",
-                    "label": {
-                        "en": "Password",
-                        "de": "Passwort"
-                    },
+                    "label": "Password",
                     "repeat": false,
                     "visible": true,
                     "xs": 12,
                     "sm": 12,
                     "md": 6,
-                    "lg": 4
+                    "lg": 4,
+                    "xl": 4
                 },
                 "countryCode": {
                     "type": "text",
-                    "label": {
-                        "en": "Country code of the account",
-                        "de": "Ländercode des Kontos"
-                    },
-                    "help": {
-                        "en": "Two letters, e.g. DE, AT, CH, GB, US — selects the cloud region",
-                        "de": "Zwei Buchstaben, z. B. DE, AT, CH, GB, US — bestimmt die Cloud-Region"
-                    },
+                    "label": "Country code of the account",
+                    "help": "Two letters, e.g. DE, AT, CH, GB, US — selects the cloud region",
                     "maxLength": 2,
                     "xs": 12,
                     "sm": 6,
                     "md": 3,
                     "lg": 2,
-                    "newLine": true
+                    "newLine": true,
+                    "xl": 2
                 },
                 "verifyMethod": {
                     "type": "select",
@@ -65,97 +50,81 @@
                     "sm": 6,
                     "md": 3,
                     "lg": 2,
-                    "label": {
-                        "en": "Send 2FA code via",
-                        "de": "2FA-Code senden per"
-                    },
+                    "label": "Send 2FA code via",
                     "options": [
                         {
                             "value": "email",
-                            "label": {
-                                "en": "E-mail",
-                                "de": "E-Mail"
-                            }
+                            "label": "E-mail"
                         },
                         {
                             "value": "sms",
-                            "label": {
-                                "en": "SMS",
-                                "de": "SMS"
-                            }
+                            "label": "SMS"
                         }
-                    ]
+                    ],
+                    "xl": 2
                 },
                 "hint": {
                     "type": "staticText",
                     "newLine": true,
                     "xs": 12,
-                    "text": {
-                        "en": "Tip: create a second eufy account, share your devices with it in the eufy app and use it here. That way the adapter never logs your phone out.",
-                        "de": "Tipp: Lege ein zweites eufy-Konto an, teile deine Geräte in der eufy-App damit und nutze es hier. So meldet der Adapter dein Handy nie ab."
-                    }
+                    "text": "Tip: create a second eufy account, share your devices with it in the eufy app and use it here. That way the adapter never logs your phone out.",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 }
             }
         },
         "login": {
             "type": "panel",
-            "label": {
-                "en": "Login (2FA / captcha)",
-                "de": "Anmeldung (2FA / Captcha)"
-            },
+            "label": "Login (2FA / captcha)",
             "items": {
                 "hdrStatus": {
                     "type": "header",
                     "size": 4,
-                    "text": {
-                        "en": "Login status",
-                        "de": "Anmeldestatus"
-                    }
+                    "text": "Login status"
                 },
                 "statusText": {
                     "type": "staticText",
                     "newLine": true,
                     "xs": 12,
-                    "text": {
-                        "en": "The instance must be running. Do NOT save the settings while a login is pending — saving restarts the instance and eufy will send a new code.",
-                        "de": "Die Instanz muss laufen. Speichere die Einstellungen NICHT, während eine Anmeldung offen ist — Speichern startet die Instanz neu und eufy schickt einen neuen Code."
-                    }
+                    "text": "The instance must be running. Do NOT save the settings while a login is pending — saving restarts the instance and eufy will send a new code.",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "btnStatus": {
                     "type": "textSendTo",
                     "command": "loginStatus",
                     "container": "div",
                     "newLine": true,
-                    "xs": 12
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "hdrCode": {
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": {
-                        "en": "Verification code (2FA)",
-                        "de": "Bestätigungscode (2FA)"
-                    }
+                    "text": "Verification code (2FA)"
                 },
                 "_verifyCode": {
                     "type": "text",
-                    "label": {
-                        "en": "Code from e-mail / SMS",
-                        "de": "Code aus E-Mail / SMS"
-                    },
+                    "label": "Code from e-mail / SMS",
                     "doNotSave": true,
                     "newLine": true,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "btnCode": {
                     "type": "sendTo",
-                    "label": {
-                        "en": "Submit code",
-                        "de": "Code senden"
-                    },
+                    "label": "Submit code",
                     "command": "verifyCode",
                     "jsonData": "{\"code\": \"${data._verifyCode}\"}",
                     "variant": "contained",
@@ -163,43 +132,40 @@
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "hdrCaptcha": {
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": {
-                        "en": "Captcha (only when requested)",
-                        "de": "Captcha (nur wenn angefordert)"
-                    }
+                    "text": "Captcha (only when requested)"
                 },
                 "captchaImg": {
                     "type": "imageSendTo",
                     "command": "captchaImage",
                     "height": 80,
                     "newLine": true,
-                    "xs": 12
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "_captchaAnswer": {
                     "type": "text",
-                    "label": {
-                        "en": "Captcha characters",
-                        "de": "Captcha-Zeichen"
-                    },
+                    "label": "Captcha characters",
                     "doNotSave": true,
                     "newLine": true,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "btnCaptcha": {
                     "type": "sendTo",
-                    "label": {
-                        "en": "Submit captcha",
-                        "de": "Captcha senden"
-                    },
+                    "label": "Submit captcha",
                     "command": "captcha",
                     "jsonData": "{\"answer\": \"${data._captchaAnswer}\"}",
                     "variant": "contained",
@@ -207,73 +173,56 @@
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "hdrRelogin": {
                     "type": "header",
                     "size": 5,
                     "newLine": true,
-                    "text": {
-                        "en": "Reset session",
-                        "de": "Sitzung zurücksetzen"
-                    }
+                    "text": "Reset session"
                 },
                 "btnRelogin": {
                     "type": "sendTo",
-                    "label": {
-                        "en": "Discard session and log in again",
-                        "de": "Sitzung verwerfen und neu anmelden"
-                    },
+                    "label": "Discard session and log in again",
                     "command": "relogin",
                     "confirm": {
-                        "text": {
-                            "en": "This usually requires a new 2FA code. Continue?",
-                            "de": "Dafür ist meist ein neuer 2FA-Code nötig. Fortfahren?"
-                        },
-                        "title": {
-                            "en": "Log in again",
-                            "de": "Neu anmelden"
-                        },
-                        "ok": {
-                            "en": "Yes",
-                            "de": "Ja"
-                        },
-                        "cancel": {
-                            "en": "Cancel",
-                            "de": "Abbrechen"
-                        }
+                        "text": "This usually requires a new 2FA code. Continue?",
+                        "title": "Log in again",
+                        "ok": "Yes",
+                        "cancel": "Cancel"
                     },
                     "newLine": true,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 }
             }
         },
         "livestream": {
             "type": "panel",
-            "label": {
-                "en": "Livestream",
-                "de": "Livestream"
-            },
+            "label": "Livestream",
             "items": {
                 "liveInfo": {
                     "type": "staticText",
                     "xs": 12,
-                    "text": {
-                        "en": "Pressing <serial>.livestream.start pulls the camera's stream through ffmpeg into a go2rtc player (bundled). livestream.url then holds the player page (MSE/HLS/WebRTC, with sound). The stream stops after the maximum duration — battery cameras drain while streaming.",
-                        "de": "Ein Druck auf <Seriennummer>.livestream.start holt den Kamerastream per ffmpeg in einen go2rtc-Player (mitgeliefert). livestream.url enthält dann die Player-Seite (MSE/HLS/WebRTC, mit Ton). Nach der Höchstdauer endet der Stream — Akku-Kameras entladen sich beim Streamen."
-                    }
+                    "text": "Pressing <serial>.livestream.start pulls the camera's stream through ffmpeg into a go2rtc player (bundled). livestream.url then holds the player page (MSE/HLS/WebRTC, with sound). The stream stops after the maximum duration — battery cameras drain while streaming.",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "liveEnabled": {
                     "type": "checkbox",
                     "newLine": true,
                     "xs": 12,
-                    "label": {
-                        "en": "Offer livestreams for cameras",
-                        "de": "Livestreams für Kameras anbieten"
-                    }
+                    "label": "Offer livestreams for cameras",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "liveHostname": {
                     "type": "text",
@@ -283,14 +232,9 @@
                     "md": 6,
                     "lg": 4,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "Hostname / IP of the ioBroker host for player URLs",
-                        "de": "Hostname / IP des ioBroker-Hosts für Player-URLs"
-                    },
-                    "help": {
-                        "en": "Empty = first network address of the host",
-                        "de": "Leer = erste Netzwerkadresse des Hosts"
-                    }
+                    "label": "Hostname / IP of the ioBroker host for player URLs",
+                    "help": "Empty = first network address of the host",
+                    "xl": 4
                 },
                 "liveMaxDurationSec": {
                     "type": "number",
@@ -301,10 +245,8 @@
                     "md": 4,
                     "lg": 3,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "Maximum duration (seconds, 0 = unlimited)",
-                        "de": "Höchstdauer (Sekunden, 0 = unbegrenzt)"
-                    }
+                    "label": "Maximum duration (seconds, 0 = unlimited)",
+                    "xl": 3
                 },
                 "liveApiPort": {
                     "type": "port",
@@ -314,10 +256,8 @@
                     "md": 3,
                     "lg": 2,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "Player / API port",
-                        "de": "Player- / API-Port"
-                    }
+                    "label": "Player / API port",
+                    "xl": 2
                 },
                 "liveRtspPort": {
                     "type": "port",
@@ -326,10 +266,8 @@
                     "md": 3,
                     "lg": 2,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "RTSP port",
-                        "de": "RTSP-Port"
-                    }
+                    "label": "RTSP port",
+                    "xl": 2
                 },
                 "liveWebrtcPort": {
                     "type": "port",
@@ -338,10 +276,8 @@
                     "md": 3,
                     "lg": 2,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "WebRTC port",
-                        "de": "WebRTC-Port"
-                    }
+                    "label": "WebRTC port",
+                    "xl": 2
                 },
                 "liveRtspUsername": {
                     "type": "text",
@@ -351,10 +287,8 @@
                     "md": 4,
                     "lg": 3,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "RTSP user (optional)",
-                        "de": "RTSP-Benutzer (optional)"
-                    }
+                    "label": "RTSP user (optional)",
+                    "xl": 3
                 },
                 "liveRtspPassword": {
                     "type": "password",
@@ -365,30 +299,30 @@
                     "md": 4,
                     "lg": 3,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "RTSP password",
-                        "de": "RTSP-Kennwort"
-                    }
+                    "label": "RTSP password",
+                    "xl": 3
                 },
                 "liveSnapshot": {
                     "type": "checkbox",
                     "newLine": true,
                     "xs": 12,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "Save a still from the running stream as snapshot",
-                        "de": "Standbild aus dem laufenden Stream als Snapshot speichern"
-                    }
+                    "label": "Save a still from the running stream as snapshot",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "liveHttps": {
                     "type": "checkbox",
                     "newLine": true,
                     "xs": 12,
                     "disabled": "!data.liveEnabled",
-                    "label": {
-                        "en": "Serve the player over HTTPS (needed when embedded in an HTTPS visualisation)",
-                        "de": "Player per HTTPS ausliefern (nötig bei Einbettung in eine HTTPS-Visualisierung)"
-                    }
+                    "label": "Serve the player over HTTPS (needed when embedded in an HTTPS visualisation)",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "liveCertPublic": {
                     "type": "certificate",
@@ -399,10 +333,8 @@
                     "md": 4,
                     "lg": 3,
                     "hidden": "!data.liveHttps",
-                    "label": {
-                        "en": "Public certificate",
-                        "de": "Öffentliches Zertifikat"
-                    }
+                    "label": "Public certificate",
+                    "xl": 3
                 },
                 "liveCertPrivate": {
                     "type": "certificate",
@@ -412,93 +344,80 @@
                     "md": 4,
                     "lg": 3,
                     "hidden": "!data.liveHttps",
-                    "label": {
-                        "en": "Private key",
-                        "de": "Privater Schlüssel"
-                    }
+                    "label": "Private key",
+                    "xl": 3
                 },
                 "liveHttpsInfo": {
                     "type": "staticText",
                     "newLine": true,
                     "xs": 12,
                     "hidden": "!data.liveHttps",
-                    "text": {
-                        "en": "Certificates come from the ioBroker system settings (Certificates). With HTTPS the adapter additionally uses the player port + 1 on 127.0.0.1 internally.",
-                        "de": "Die Zertifikate kommen aus den ioBroker-Systemeinstellungen (Zertifikate). Mit HTTPS nutzt der Adapter intern zusätzlich Player-Port + 1 auf 127.0.0.1."
-                    }
+                    "text": "Certificates come from the ioBroker system settings (Certificates). With HTTPS the adapter additionally uses the player port + 1 on 127.0.0.1 internally.",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 },
                 "liveSecurity": {
                     "type": "staticText",
                     "newLine": true,
                     "xs": 12,
-                    "text": {
-                        "en": "The player port has no login. Only use it in your home network — do not forward these ports to the internet.",
-                        "de": "Der Player-Port hat keine Anmeldung. Nur im Heimnetz verwenden — diese Ports nicht ins Internet weiterleiten."
-                    }
+                    "text": "The player port has no login. Only use it in your home network — do not forward these ports to the internet.",
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 }
             }
         },
         "options": {
             "type": "panel",
-            "label": {
-                "en": "Options",
-                "de": "Optionen"
-            },
+            "label": "Options",
             "items": {
                 "pollIntervalMin": {
                     "type": "number",
-                    "label": {
-                        "en": "Cloud poll interval (minutes)",
-                        "de": "Cloud-Abfrageintervall (Minuten)"
-                    },
-                    "help": {
-                        "en": "Realtime events arrive via push/MQTT/P2P anyway; the poll catches values that are only reported to the cloud.",
-                        "de": "Echtzeit-Ereignisse kommen ohnehin per Push/MQTT/P2P; die Abfrage holt Werte, die nur an die Cloud gemeldet werden."
-                    },
+                    "label": "Cloud poll interval (minutes)",
+                    "help": "Realtime events arrive via push/MQTT/P2P anyway; the poll catches values that are only reported to the cloud.",
                     "min": 1,
                     "max": 120,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "cacheTtlSec": {
                     "type": "number",
-                    "label": {
-                        "en": "Value cache TTL (seconds)",
-                        "de": "Werte-Cache-Dauer (Sekunden)"
-                    },
+                    "label": "Value cache TTL (seconds)",
                     "min": 5,
                     "max": 3600,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "eventResetSec": {
                     "type": "number",
-                    "label": {
-                        "en": "Reset event states after (seconds, 0 = never)",
-                        "de": "Ereignis-Datenpunkte zurücksetzen nach (Sekunden, 0 = nie)"
-                    },
+                    "label": "Reset event states after (seconds, 0 = never)",
                     "min": 0,
                     "max": 3600,
                     "newLine": true,
                     "xs": 12,
                     "sm": 6,
                     "md": 4,
-                    "lg": 3
+                    "lg": 3,
+                    "xl": 3
                 },
                 "saveSnapshots": {
                     "type": "checkbox",
-                    "label": {
-                        "en": "Save camera thumbnail on motion/person/doorbell events",
-                        "de": "Kamera-Vorschaubild bei Bewegung/Person/Klingel speichern"
-                    },
+                    "label": "Save camera thumbnail on motion/person/doorbell events",
                     "newLine": true,
                     "xs": 12,
                     "sm": 12,
-                    "md": 8
+                    "md": 8,
+                    "lg": 8,
+                    "xl": 8
                 },
                 "snapshotDataUrl": {
                     "type": "checkbox",
@@ -506,58 +425,50 @@
                     "xs": 12,
                     "sm": 12,
                     "md": 8,
-                    "label": {
-                        "en": "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)",
-                        "de": "Snapshot zusätzlich als Data-URL bereitstellen (snapshot.dataUrl, für vis-Bild-/HTML-Widgets)"
-                    }
+                    "label": "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)",
+                    "lg": 8,
+                    "xl": 8
                 },
                 "ffmpegPath": {
                     "type": "text",
-                    "label": {
-                        "en": "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)",
-                        "de": "Pfad zu ffmpeg (optional; Standard: ffmpeg aus PATH, sonst mitgeliefert)"
-                    },
+                    "label": "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)",
                     "newLine": true,
                     "xs": 12,
                     "sm": 12,
                     "md": 6,
-                    "lg": 4
+                    "lg": 4,
+                    "xl": 4
                 },
                 "excludeDevices": {
                     "type": "text",
-                    "label": {
-                        "en": "Ignore devices (serial numbers, comma separated)",
-                        "de": "Geräte ignorieren (Seriennummern, kommagetrennt)"
-                    },
+                    "label": "Ignore devices (serial numbers, comma separated)",
                     "newLine": true,
                     "xs": 12,
                     "sm": 12,
-                    "md": 8
+                    "md": 8,
+                    "lg": 8,
+                    "xl": 8
                 },
                 "openudid": {
                     "type": "text",
-                    "label": {
-                        "en": "Client identity (openudid, optional)",
-                        "de": "Client-Kennung (openudid, optional)"
-                    },
-                    "help": {
-                        "en": "Leave empty — a stable random identity is generated per instance.",
-                        "de": "Leer lassen — pro Instanz wird eine stabile Zufallskennung erzeugt."
-                    },
+                    "label": "Client identity (openudid, optional)",
+                    "help": "Leave empty — a stable random identity is generated per instance.",
                     "newLine": true,
                     "xs": 12,
                     "sm": 12,
                     "md": 6,
-                    "lg": 4
+                    "lg": 4,
+                    "xl": 4
                 },
                 "sdkDebug": {
                     "type": "checkbox",
-                    "label": {
-                        "en": "Verbose SDK logging (info/warn of the SDK in the ioBroker log)",
-                        "de": "Ausführliches SDK-Logging (Info/Warnungen des SDK im ioBroker-Log)"
-                    },
+                    "label": "Verbose SDK logging (info/warn of the SDK in the ioBroker log)",
                     "newLine": true,
-                    "xs": 12
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12
                 }
             }
         }

@@ -13,7 +13,8 @@
 export interface ReadDescriptorLike {
     accessor: string;
     property: string;
-    type: "bool" | "number" | "string" | "enum" | string;
+    /** 'bool' | 'number' | 'string' | 'enum' — kept open for types a newer SDK may add. */
+    type: string;
     kind?: string;
     unit?: string;
     values?: readonly (string | number)[];
@@ -38,7 +39,7 @@ export interface ActionArgLike {
 /** Structural copy of the SDK's `ActionDescriptor`. */
 export interface ActionDescriptorLike {
     name: string;
-    form: "momentary" | "stateful";
+    form: 'momentary' | 'stateful';
     reflects?: string;
     args?: readonly ActionArgLike[];
     description?: string;
@@ -83,19 +84,19 @@ export interface StateCommon {
 }
 
 /** How a state's value travels between ioBroker and the SDK. */
-export type ValueCodec = "raw" | "timestamp" | "json";
+export type ValueCodec = 'raw' | 'timestamp' | 'json';
 
 /** Replace characters ioBroker forbids in object ids. */
 export function sanitizeId(id: string): string {
-    return id.replace(/[\][*,;'"`<>\\?\s.]/g, "_");
+    return id.replace(/[\][*,;'"`<>\\?\s.]/g, '_');
 }
 
 /** "batteryTemperature" → "Battery temperature". */
 export function humanize(name: string): string {
     const spaced = name
-        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-        .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
-        .replace(/[_-]+/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
         .toLowerCase()
         .trim();
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
@@ -103,15 +104,15 @@ export function humanize(name: string): string {
 
 /** Units the SDK reports per kind, used when a descriptor carries a kind but no unit. */
 const KIND_UNITS: Record<string, string> = {
-    percent: "%",
-    celsius: "°C",
-    dbm: "dBm",
-    seconds: "s",
-    minutes: "min",
-    hours: "h",
-    millimetres: "mm",
-    megabytes: "MB",
-    degrees: "°",
+    percent: '%',
+    celsius: '°C',
+    dbm: 'dBm',
+    seconds: 's',
+    minutes: 'min',
+    hours: 'h',
+    millimetres: 'mm',
+    megabytes: 'MB',
+    degrees: '°',
 };
 
 function enumStates(
@@ -122,13 +123,13 @@ function enumStates(
         return { ...labels };
     }
     if (values?.length) {
-        return Object.fromEntries(values.map((v) => [String(v), String(v)]));
+        return Object.fromEntries(values.map(v => [String(v), String(v)]));
     }
     return undefined;
 }
 
 function allNumeric(values: readonly (string | number)[] | undefined): boolean {
-    return !!values?.length && values.every((v) => typeof v === "number" || /^-?\d+(\.\d+)?$/.test(String(v)));
+    return !!values?.length && values.every(v => typeof v === 'number' || /^-?\d+(\.\d+)?$/.test(String(v)));
 }
 
 /** Pick the ioBroker storage type for a kind/type pair. */
@@ -137,94 +138,110 @@ function storageType(
     kind: string | undefined,
     values: readonly (string | number)[] | undefined,
 ): ioBroker.CommonType {
-    if (kind === "boolean" || type === "bool") {
-        return "boolean";
+    if (kind === 'boolean' || type === 'bool') {
+        return 'boolean';
     }
-    if (kind === "text" || kind === "identifier") {
-        return type === "number" ? "number" : "string";
+    if (kind === 'text' || kind === 'identifier') {
+        return type === 'number' ? 'number' : 'string';
     }
-    if (type === "number" || kind === "timestamp" || (kind && kind in KIND_UNITS) || kind === "scalar" || kind === "bitfield") {
-        return "number";
+    if (
+        type === 'number' ||
+        kind === 'timestamp' ||
+        (kind && kind in KIND_UNITS) ||
+        kind === 'scalar' ||
+        kind === 'bitfield'
+    ) {
+        return 'number';
     }
-    if (type === "enum" || kind === "enum") {
-        return allNumeric(values) || values === undefined ? "number" : "string";
+    if (type === 'enum' || kind === 'enum') {
+        return allNumeric(values) || values === undefined ? 'number' : 'string';
     }
-    if (type === "string") {
-        return "string";
+    if (type === 'string') {
+        return 'string';
     }
-    return "mixed";
+    return 'mixed';
 }
 
 /** Read-only booleans: pick a sensor role from the name where it is unambiguous. */
 function booleanSensorRole(name: string): string {
-    if (name.includes("leak")) {
-        return "sensor.alarm.flood";
+    if (name.includes('leak')) {
+        return 'sensor.alarm.flood';
     }
-    if (name.includes("smoke")) {
-        return "sensor.alarm.fire";
+    if (name.includes('smoke')) {
+        return 'sensor.alarm.fire';
     }
     if (/(^|\s)co(detected|\s|$)/.test(name)) {
-        return "sensor.alarm";
+        return 'sensor.alarm';
     }
-    if (name.includes("motion")) {
-        return "sensor.motion";
+    if (name.includes('motion')) {
+        return 'sensor.motion';
     }
-    if (name.includes("open")) {
-        return "sensor.door";
+    if (name.includes('open')) {
+        return 'sensor.door';
     }
-    return "indicator";
+    return 'indicator';
 }
 
 /** Choose a role from what the value means, whether it is writable, and its property name. */
 function roleFor(kind: string | undefined, type: ioBroker.CommonType, writable: boolean, property: string): string {
     const p = property.toLowerCase();
     switch (kind) {
-        case "boolean":
-            return writable ? "switch" : booleanSensorRole(p);
-        case "percent":
-            if (p.includes("battery")) {
-                return writable ? "level" : "value.battery";
+        case 'boolean':
+            return writable ? 'switch' : booleanSensorRole(p);
+        case 'percent':
+            if (p.includes('battery')) {
+                return writable ? 'level' : 'value.battery';
             }
-            if (p.includes("bright")) {
-                return writable ? "level.dimmer" : "value.brightness";
+            if (p.includes('bright')) {
+                // value.brightness means lux; a brightness percentage is a plain value
+                return writable ? 'level.dimmer' : 'value';
             }
-            if (p.includes("volume")) {
-                return writable ? "level.volume" : "value.volume";
+            if (p.includes('volume')) {
+                return writable ? 'level.volume' : 'value.volume';
             }
-            return writable ? "level" : "value";
-        case "celsius":
-            return writable ? "level.temperature" : "value.temperature";
-        case "timestamp":
-            return "value.time";
-        case "enum":
-            return writable ? "level.mode" : "value.mode";
-        case "text":
-            return "text";
-        case "identifier":
-            return type === "number" ? "value" : "text";
+            return writable ? 'level' : 'value';
+        case 'celsius':
+            return writable ? 'level.temperature' : 'value.temperature';
+        case 'timestamp':
+            // value.* is read-only; a writable instant (ms) is a date
+            return writable ? 'date' : 'value.time';
+        case 'enum':
+            // Only specific level.mode.<x> roles exist and value.* requires numbers: a numeric choice is a
+            // level/value with `states`, a textual one is text.
+            if (type !== 'number') {
+                return 'text';
+            }
+            return writable ? 'level' : 'value';
+        case 'text':
+            return 'text';
+        case 'identifier':
+            if (type !== 'number') {
+                return 'text';
+            }
+            return writable ? 'level' : 'value';
         case undefined:
             break;
         default:
-            if (type === "number") {
-                return writable ? "level" : "value";
+            if (type === 'number') {
+                return writable ? 'level' : 'value';
             }
     }
-    if (type === "boolean") {
-        return writable ? "switch" : "indicator";
+    if (type === 'boolean') {
+        return writable ? 'switch' : 'indicator';
     }
-    if (type === "number") {
-        return writable ? "level" : "value";
+    if (type === 'number') {
+        return writable ? 'level' : 'value';
     }
-    if (type === "string") {
-        return "text";
+    if (type === 'string') {
+        return 'text';
     }
-    return "state";
+    return 'state';
 }
 
 /** Map one manifest read to a state definition. */
 export function readCommon(r: ReadDescriptorLike): { common: StateCommon; codec: ValueCodec } {
     const type = storageType(r.type, r.kind, r.values);
-    const unit = r.kind === "timestamp" ? undefined : (r.unit ?? (r.kind ? KIND_UNITS[r.kind] : undefined));
+    const unit = r.kind === 'timestamp' ? undefined : (r.unit ?? (r.kind ? KIND_UNITS[r.kind] : undefined));
     const common: StateCommon = {
         name: humanize(r.accessor),
         type,
@@ -235,28 +252,33 @@ export function readCommon(r: ReadDescriptorLike): { common: StateCommon; codec:
     if (unit) {
         common.unit = unit;
     }
-    if (r.kind === "percent") {
+    if (r.kind === 'percent') {
         common.min = 0;
         common.max = 100;
     }
-    const states = r.kind === "boolean" || type === "boolean" ? undefined : enumStates(r.values, r.labels);
-    if (states && (r.kind === "enum" || r.type === "enum" || r.labels)) {
+    const states = r.kind === 'boolean' || type === 'boolean' ? undefined : enumStates(r.values, r.labels);
+    if (states && (r.kind === 'enum' || r.type === 'enum' || r.labels)) {
         common.states = states;
     }
     if (r.description) {
         common.desc = r.description;
     }
-    return { common, codec: r.kind === "timestamp" ? "timestamp" : type === "mixed" ? "json" : "raw" };
+    return { common, codec: r.kind === 'timestamp' ? 'timestamp' : type === 'mixed' ? 'json' : 'raw' };
 }
 
 /** Map one action argument to a state definition (write-only control). */
 export function argCommon(name: string, a: ActionArgLike): StateCommon {
-    const type = storageType(a.kind === "boolean" ? "bool" : a.values && !allNumeric(a.values) ? "string" : "number", a.kind, a.values);
+    const type = storageType(
+        a.kind === 'boolean' ? 'bool' : a.values && !allNumeric(a.values) ? 'string' : 'number',
+        a.kind,
+        a.values,
+    );
     const common: StateCommon = {
         name: humanize(name),
-        type: a.kind === "text" || a.kind === "identifier" ? "string" : type,
+        type: a.kind === 'text' || a.kind === 'identifier' ? 'string' : type,
         role: roleFor(a.kind, type, true, name),
-        read: false,
+        // level/switch roles must be readable: the state keeps the last value sent
+        read: true,
         write: true,
     };
     const unit = a.kind ? KIND_UNITS[a.kind] : undefined;
@@ -273,7 +295,7 @@ export function argCommon(name: string, a: ActionArgLike): StateCommon {
         common.step = a.step;
     }
     const states = enumStates(a.values, a.labels);
-    if (states && common.type !== "boolean") {
+    if (states && common.type !== 'boolean') {
         common.states = states;
     }
     if (a.description) {
@@ -285,46 +307,46 @@ export function argCommon(name: string, a: ActionArgLike): StateCommon {
 /** What the adapter does with one described action. */
 export type ActionPlan =
     /** Bind the action as the writer of an existing read state (stateful, one argument). */
-    | { kind: "bindRead"; action: ActionDescriptorLike; readAccessor: string }
+    | { kind: 'bindRead'; action: ActionDescriptorLike; readAccessor: string }
     /** A button: write `true` to call the action without arguments. */
-    | { kind: "button"; action: ActionDescriptorLike; common: StateCommon }
+    | { kind: 'button'; action: ActionDescriptorLike; common: StateCommon }
     /** A single-argument control state. */
-    | { kind: "single"; action: ActionDescriptorLike; common: StateCommon }
+    | { kind: 'single'; action: ActionDescriptorLike; common: StateCommon }
     /** A JSON control state for actions taking several arguments. */
-    | { kind: "json"; action: ActionDescriptorLike; common: StateCommon }
+    | { kind: 'json'; action: ActionDescriptorLike; common: StateCommon }
     /** Not auto-offerable (arguments not stated by the SDK). */
-    | { kind: "skip"; action: ActionDescriptorLike };
+    | { kind: 'skip'; action: ActionDescriptorLike };
 
 /**
  * Media calls return their result (a JPEG, an mp4) instead of changing device state; a button would throw that
  * away. Snapshots are handled by the adapter's own `snapshot` channel instead.
  */
-const MEDIA_ACTIONS = new Set(["snapshotStored", "snapshotLive", "record", "recordFragments", "live", "openReadable"]);
+const MEDIA_ACTIONS = new Set(['snapshotStored', 'snapshotLive', 'record', 'recordFragments', 'live', 'openReadable']);
 
 /** Decide how each action of a capability is surfaced. */
 export function planAction(cap: CapabilityDescriptorLike, a: ActionDescriptorLike): ActionPlan {
     if (!a.args || MEDIA_ACTIONS.has(a.name)) {
-        return { kind: "skip", action: a };
+        return { kind: 'skip', action: a };
     }
-    const required = a.args.filter((x) => !x.optional);
-    if (a.form === "stateful" && a.reflects) {
+    const required = a.args.filter(x => !x.optional);
+    if (a.form === 'stateful' && a.reflects) {
         // The reflected read is the action's evidence gate (SDK contract): where the device did not install it,
         // the write is not offerable on this device, so it gets no control.
-        if (!cap.reads.some((r) => r.accessor === a.reflects)) {
-            return { kind: "skip", action: a };
+        if (!cap.reads.some(r => r.accessor === a.reflects)) {
+            return { kind: 'skip', action: a };
         }
         if (a.args.length === 1) {
-            return { kind: "bindRead", action: a, readAccessor: a.reflects };
+            return { kind: 'bindRead', action: a, readAccessor: a.reflects };
         }
     }
     if (required.length === 0) {
         return {
-            kind: "button",
+            kind: 'button',
             action: a,
             common: {
                 name: humanize(a.name),
-                type: "boolean",
-                role: "button",
+                type: 'boolean',
+                role: 'button',
                 read: false,
                 write: true,
                 desc: a.description,
@@ -336,19 +358,19 @@ export function planAction(cap: CapabilityDescriptorLike, a: ActionDescriptorLik
         if (a.description) {
             common.desc = a.description;
         }
-        return { kind: "single", action: a, common };
+        return { kind: 'single', action: a, common };
     }
-    const sig = a.args.map((x) => `${x.name}${x.optional ? "?" : ""}: ${x.kind}`).join(", ");
+    const sig = a.args.map(x => `${x.name}${x.optional ? '?' : ''}: ${x.kind}`).join(', ');
     return {
-        kind: "json",
+        kind: 'json',
         action: a,
         common: {
             name: humanize(a.name),
-            type: "string",
-            role: "json",
+            type: 'string',
+            role: 'json',
             read: false,
             write: true,
-            desc: `${a.description ? `${a.description} — ` : ""}JSON array or object: (${sig})`,
+            desc: `${a.description ? `${a.description} — ` : ''}JSON array or object: (${sig})`,
         },
     };
 }
@@ -358,13 +380,13 @@ export function planAction(cap: CapabilityDescriptorLike, a: ActionDescriptorLik
  * Accepts either an array (`[1, 2]`) or an object keyed by argument name (`{"x": 1, "y": 2}`).
  */
 export function parseJsonArgs(raw: unknown, args: readonly ActionArgLike[]): unknown[] {
-    const parsed = typeof raw === "string" ? (JSON.parse(raw) as unknown) : raw;
+    const parsed = typeof raw === 'string' ? (JSON.parse(raw) as unknown) : raw;
     if (Array.isArray(parsed)) {
         return parsed;
     }
-    if (parsed && typeof parsed === "object") {
+    if (parsed && typeof parsed === 'object') {
         const obj = parsed as Record<string, unknown>;
-        const out = args.map((a) => obj[a.name]);
+        const out = args.map(a => obj[a.name]);
         while (out.length && out[out.length - 1] === undefined) {
             out.pop();
         }
@@ -378,26 +400,26 @@ export function toStateValue(value: unknown, codec: ValueCodec, type: ioBroker.C
     if (value === undefined || value === null) {
         return null;
     }
-    if (codec === "timestamp" && typeof value === "number") {
+    if (codec === 'timestamp' && typeof value === 'number') {
         // The SDK reports instants in unix seconds; ioBroker's value.time role is milliseconds.
         return value < 1e11 ? value * 1000 : value;
     }
-    if (typeof value === "bigint") {
+    if (typeof value === 'bigint') {
         return Number(value);
     }
     if (Buffer.isBuffer(value)) {
-        return value.toString("base64");
+        return value.toString('base64');
     }
-    if (typeof value === "object") {
+    if (typeof value === 'object') {
         return JSON.stringify(value);
     }
-    if (type === "boolean" && typeof value === "number") {
+    if (type === 'boolean' && typeof value === 'number') {
         return value !== 0;
     }
-    if (type === "number" && typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) {
+    if (type === 'number' && typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
         return Number(value);
     }
-    if (type === "string" && typeof value !== "string") {
+    if (type === 'string' && (typeof value === 'number' || typeof value === 'boolean')) {
         return String(value);
     }
     return value as ioBroker.StateValue;
@@ -405,22 +427,22 @@ export function toStateValue(value: unknown, codec: ValueCodec, type: ioBroker.C
 
 /** Convert a value written in ioBroker into what the SDK setter takes. */
 export function fromStateValue(value: ioBroker.StateValue, codec: ValueCodec, type: ioBroker.CommonType): unknown {
-    if (codec === "timestamp" && typeof value === "number") {
+    if (codec === 'timestamp' && typeof value === 'number') {
         return Math.round(value / 1000);
     }
-    if (codec === "json" && typeof value === "string") {
+    if (codec === 'json' && typeof value === 'string') {
         try {
             return JSON.parse(value);
         } catch {
             return value;
         }
     }
-    if (type === "number" && typeof value === "string" && value.trim() !== "") {
+    if (type === 'number' && typeof value === 'string' && value.trim() !== '') {
         const n = Number(value);
         return Number.isNaN(n) ? value : n;
     }
-    if (type === "boolean" && typeof value !== "boolean") {
-        return value === "true" || value === 1 || value === "1";
+    if (type === 'boolean' && typeof value !== 'boolean') {
+        return value === 'true' || value === 1 || value === '1';
     }
     return value;
 }

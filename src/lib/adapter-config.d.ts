@@ -25,7 +25,7 @@ declare global {
             liveHttps: boolean;
             liveCertPublic: string;
             liveCertPrivate: string;
-            verifyMethod: "email" | "sms";
+            verifyMethod: 'email' | 'sms';
             snapshotDataUrl: boolean;
         }
     }
