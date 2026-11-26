@@ -47,7 +47,7 @@
     "Reset event states after (seconds, 0 = never)": "Reset event states after (seconds, 0 = never)",
     "Save camera thumbnail on motion/person/doorbell events": "Save camera thumbnail on motion/person/doorbell events",
     "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)": "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)",
-    "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)": "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)",
+    "Path to ffmpeg (optional; default: the bundled ffmpeg)": "Path to ffmpeg (optional; default: the bundled ffmpeg)",
     "Ignore devices (serial numbers, comma separated)": "Ignore devices (serial numbers, comma separated)",
     "Client identity (openudid, optional)": "Client identity (openudid, optional)",
     "Leave empty — a stable random identity is generated per instance.": "Leave empty — a stable random identity is generated per instance.",

@@ -6,8 +6,9 @@
  */
 import * as utils from '@iobroker/adapter-core';
 import { randomUUID } from 'node:crypto';
-import { accessSync, constants as fsConstants, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import type {
     AnyDeviceEvent,
     AvailabilityObservation,
@@ -178,7 +179,8 @@ class EufyNext extends utils.Adapter {
             this.liveSessions.clear();
             await this.go2rtc?.stop();
             if (this.eufy) {
-                await Promise.race([this.eufy.disconnect(), new Promise(r => setTimeout(r, 4000))]);
+                // the adapter's own timers are refused while unloading
+                await Promise.race([this.eufy.disconnect(), sleep(4000)]);
             }
             this.devices.clear();
             await this.setStateAsync('info.connection', false, true);
@@ -281,35 +283,16 @@ class EufyNext extends utils.Adapter {
         }
     }
 
-    /** ffmpeg to run: the configured path, else one on PATH, else the bundled ffmpeg-static. */
-    private ffmpeg(): string | undefined {
-        if (this.ffmpegBin !== undefined) {
-            return this.ffmpegBin || undefined;
+    /**
+     * ffmpeg to run: the configured path, else the bundled ffmpeg-static, else plain `ffmpeg` (resolved from PATH
+     * by the operating system when it is started).
+     */
+    private ffmpeg(): string {
+        if (this.ffmpegBin === undefined) {
+            this.ffmpegBin = this.config.ffmpegPath?.trim() || bundledFfmpeg() || 'ffmpeg';
+            this.log.debug(`ffmpeg: ${this.ffmpegBin}`);
         }
-        const configured = this.config.ffmpegPath?.trim();
-        let found = configured || '';
-        if (!found) {
-            const exe = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
-            for (const dir of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)) {
-                try {
-                    accessSync(path.join(dir, exe), fsConstants.X_OK);
-                    found = path.join(dir, exe);
-                    break;
-                } catch {
-                    // not here
-                }
-            }
-        }
-        if (!found) {
-            try {
-                found = requireOptional('ffmpeg-static') ?? '';
-            } catch {
-                found = '';
-            }
-        }
-        this.ffmpegBin = found;
-        this.log.debug(`ffmpeg: ${found || 'not available'}`);
-        return found || undefined;
+        return this.ffmpegBin;
     }
 
     /** Where eufy sends the 2FA code: 2 = e-mail (default), 1 = SMS. */
@@ -1043,7 +1026,7 @@ class EufyNext extends utils.Adapter {
         }
         let binary: string | null = null;
         try {
-            binary = requireOptional('go2rtc-static');
+            binary = bundledGo2rtc();
         } catch {
             binary = null;
         }
@@ -1497,12 +1480,23 @@ function str(v: unknown): string {
     return typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean' ? String(v) : '';
 }
 
-/** The default export of an optional CommonJS package (go2rtc-static / ffmpeg-static export a path). */
-function requireOptional(name: string): string | null {
+/** Path of the ffmpeg binary installed by `ffmpeg-static`, or null on a platform it has no binary for. */
+function bundledFfmpeg(): string | null {
     try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const v: unknown = require(name);
-        return typeof v === 'string' ? v : null;
+        const p: unknown = require('ffmpeg-static');
+        return typeof p === 'string' ? p : null;
+    } catch {
+        return null;
+    }
+}
+
+/** Path of the go2rtc binary installed by `go2rtc-static`, or null on a platform it has no binary for. */
+function bundledGo2rtc(): string | null {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const p: unknown = require('go2rtc-static');
+        return typeof p === 'string' ? p : null;
     } catch {
         return null;
     }

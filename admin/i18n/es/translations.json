@@ -47,7 +47,7 @@
     "Reset event states after (seconds, 0 = never)": "Restablecer los estados de eventos tras (segundos, 0 = nunca)",
     "Save camera thumbnail on motion/person/doorbell events": "Guardar la miniatura de la cámara en eventos de movimiento/persona/timbre",
     "Also provide the snapshot as data URL (snapshot.dataUrl, for vis image/HTML widgets)": "Proporcionar también la instantánea como data URL (snapshot.dataUrl, para widgets de imagen/HTML de vis)",
-    "Path to ffmpeg (optional; default: ffmpeg on PATH, else bundled)": "Ruta a ffmpeg (opcional; por defecto: ffmpeg en PATH, si no, el incluido)",
+    "Path to ffmpeg (optional; default: the bundled ffmpeg)": "Ruta a ffmpeg (opcional; por defecto: el ffmpeg incluido)",
     "Ignore devices (serial numbers, comma separated)": "Ignorar dispositivos (números de serie separados por comas)",
     "Client identity (openudid, optional)": "Identidad del cliente (openudid, opcional)",
     "Leave empty — a stable random identity is generated per instance.": "Déjalo vacío: se genera una identidad aleatoria estable por instancia.",

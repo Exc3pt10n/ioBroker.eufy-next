@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.4.0",
+        "version": "0.4.1",
         "news": {
+            "0.4.1": {
+                "en": "Fixes for the ioBroker repository checker (timers, no process.env, README without installation commands); ffmpeg: configured path, else the bundled one",
+                "de": "Korrekturen für den ioBroker-Repochecker (Timer, kein process.env, README ohne Installationsbefehle); ffmpeg: konfigurierter Pfad, sonst das mitgelieferte",
+                "ru": "Исправления для проверки репозитория ioBroker (таймеры, без process.env, README без команд установки); ffmpeg: заданный путь, иначе встроенный",
+                "pt": "Correções para o verificador de repositório do ioBroker (temporizadores, sem process.env, README sem comandos de instalação); ffmpeg: caminho configurado, senão o incluído",
+                "nl": "Correcties voor de ioBroker-repositorycontrole (timers, geen process.env, README zonder installatiecommando's); ffmpeg: ingesteld pad, anders de meegeleverde",
+                "fr": "Corrections pour le vérificateur de dépôt ioBroker (minuteries, pas de process.env, README sans commandes d'installation) ; ffmpeg : chemin configuré, sinon celui fourni",
+                "it": "Correzioni per il controllo del repository ioBroker (timer, niente process.env, README senza comandi di installazione); ffmpeg: percorso configurato, altrimenti quello incluso",
+                "es": "Correcciones para el verificador de repositorio de ioBroker (temporizadores, sin process.env, README sin comandos de instalación); ffmpeg: ruta configurada o, si no, el incluido",
+                "pl": "Poprawki dla narzędzia sprawdzającego repozytorium ioBroker (timery, bez process.env, README bez poleceń instalacji); ffmpeg: skonfigurowana ścieżka, w przeciwnym razie dołączony",
+                "uk": "Виправлення для перевірки репозиторію ioBroker (таймери, без process.env, README без команд встановлення); ffmpeg: заданий шлях, інакше вбудований",
+                "zh-cn": "针对 ioBroker 仓库检查器的修复（定时器、不再使用 process.env、README 中不含安装命令）；ffmpeg：使用配置的路径，否则使用内置版本"
+            },
             "0.4.0": {
                 "en": "Breaking: distributed via npm (installation from GitHub no longer works). Admin UI in 11 languages, review fixes (state roles, protected custom settings, timers, error handling)",
                 "de": "Breaking: Verteilung über npm (Installation aus GitHub funktioniert nicht mehr). Admin-Oberfläche in 11 Sprachen, Korrekturen aus dem Review (Rollen, geschützte Custom-Einstellungen, Timer, Fehlerbehandlung)",

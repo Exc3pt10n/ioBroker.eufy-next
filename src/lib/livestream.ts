@@ -10,6 +10,7 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
+import { clearTimeout as nodeClearTimeout, setTimeout as nodeSetTimeout } from 'node:timers';
 import type { Writable } from 'node:stream';
 
 export interface LiveLogger {
@@ -24,10 +25,13 @@ export interface TimerApi {
     clear: (handle: unknown) => void;
 }
 
-/** Plain Node timers — for use outside an adapter (tests). */
+/**
+ * Node's own timers — for use outside an adapter (tests) and while the adapter unloads, when it refuses new timers
+ * but stopping ffmpeg/go2rtc still needs a kill timeout.
+ */
 export const nodeTimers: TimerApi = {
-    set: (fn, ms) => setTimeout(fn, ms),
-    clear: handle => clearTimeout(handle as NodeJS.Timeout),
+    set: (fn, ms) => nodeSetTimeout(fn, ms),
+    clear: handle => nodeClearTimeout(handle as NodeJS.Timeout),
 };
 
 export interface Go2rtcOptions {

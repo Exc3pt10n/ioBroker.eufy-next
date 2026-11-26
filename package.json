@@ -1,6 +1,6 @@
 {
   "name": "iobroker.eufy-next",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "ioBroker adapter for Anker eufy devices (cameras, doorbells, locks, sensors, vacuums, lights) based on the new eufy-sdk (eufy v6 cloud)",
   "author": {
     "name": "Exc3pt10n",

@@ -11,14 +11,9 @@ Manufacturer: [eufy (Anker Innovations)](https://www.eufy.com/). German descript
 
 > Independent and unofficial. Not affiliated with, endorsed by, or sponsored by Anker Innovations or eufy.
 
-## Installation
+## Availability
 
-The adapter is published on npm as `iobroker.eufy-next` (it is not yet part of the official ioBroker repository):
-
-- Admin → Adapters → *Install from custom URL* → tab **npm** → `iobroker.eufy-next`, or
-- on the command line: `iobroker url iobroker.eufy-next`
-
-Then create an instance and continue with [Configuration](#configuration).
+The adapter is published on npm as `iobroker.eufy-next`. It is not (yet) part of the official ioBroker repository.
 
 ## How it works
 
@@ -90,7 +85,7 @@ page plays via MSE/HLS (with sound) or WebRTC.
 - **Ports**: player/API 1984, RTSP 8554, WebRTC 8555 (TCP/UDP). The player port has **no login** — keep it in
   your home network and never forward it to the internet. RTSP can be protected with user/password.
 - While a stream runs, a still is stored as `snapshot.url` (option *Save a still from the running stream*).
-- ffmpeg: the configured path, else `ffmpeg` on `PATH`, else the bundled `ffmpeg-static`.
+- ffmpeg: the configured path, else the bundled `ffmpeg-static`.
 
 ### Station, PTZ presets, quick responses
 
@@ -130,7 +125,7 @@ also uses the player port + 1 on 127.0.0.1 internally.
 - For snapshots from a running camera and for the livestream the adapter needs `ffmpeg` (remuxes the camera's video
   and encodes its sound) and [go2rtc](https://github.com/AlexxIT/go2rtc) (player server). Both are installed as npm
   dependencies (`ffmpeg-static`, `go2rtc-static`, which download the binary for your platform during installation).
-  A system `ffmpeg` on `PATH` is preferred.
+  A different ffmpeg can be set in the options.
 
 ## Configuration
 
@@ -153,7 +148,7 @@ The session is stored in the instance data directory, so later restarts log in w
 | Reset event states     | `events.*.triggered` is reset to `false` after this many seconds            |
 | Save camera thumbnail  | Store the latest event thumbnail as a file                                  |
 | Snapshot as data URL   | Additionally put the snapshot into `snapshot.dataUrl` for vis image/HTML widgets |
-| ffmpeg path            | Optional; default is `ffmpeg` on `PATH`, else the bundled one               |
+| ffmpeg path            | Optional; default is the bundled ffmpeg                                     |
 | Ignore devices         | Serial numbers to skip                                                      |
 | Client identity        | Leave empty; a stable random identity is generated per instance             |
 | Verbose SDK logging    | Show SDK info/warnings in the ioBroker log (debug level always contains them) |
@@ -167,10 +162,16 @@ Developer information: [DEVELOPMENT.md](DEVELOPMENT.md).
     ### **WORK IN PROGRESS**
 -->
 
+### 0.4.1 (2026-11-26)
+
+- (Exc3pt10n) Fixes for the ioBroker repository checker: no global timers or custom sleep, no use of
+  `process.env`, no installation commands in the README, `.commitinfo` ignored
+- (Exc3pt10n) ffmpeg: the configured path, else the bundled one (a system ffmpeg is no longer searched on `PATH`)
+
 ### 0.4.0 (2026-11-26)
 
 - (Exc3pt10n) **Breaking:** the adapter is now distributed via npm. Installations from GitHub (`tarball/release`)
-  no longer update — reinstall it from npm (see [Installation](#installation)); settings and objects are kept
+  no longer update — reinstall it from npm; settings and objects are kept
 - (Exc3pt10n) Admin UI available in 11 languages
 - (Exc3pt10n) State roles follow the ioBroker role list (no `level.mode`/`value.mode`; command states are readable)
 - (Exc3pt10n) Objects with custom settings (history, InfluxDB, SQL …) are no longer deleted when a device stops
