@@ -33,7 +33,9 @@ anbietet (z. B. `camera.nightVision`, `battery.level`, `arming.mode`, `light.bri
 - **Ereignisse** (Bewegung, Person, Klingel, Alarm …) unter `events.<name>.triggered`, `lastTriggered`, `payload`.
 - **Snapshots** von Kameras: `snapshot.url` (Datei), `snapshot.dataUrl` (für `<img src>`), aktualisiert bei Ereignissen
   mit Vorschaubild. Dafür in der eufy-App eine Benachrichtigungsart *mit Vorschaubild* wählen.
-- **Livestream:** `livestream.start` drücken, `livestream.url` enthält dann die Player-Seite (go2rtc, Port 1984).
+- **Livestream:** `livestream.start` drücken. Sobald der Player Daten von der Kamera hat, wird `livestream.active` zu
+  `true` und `livestream.url` enthält die Player-Seite (go2rtc, Port 1984). Schlägt der Start fehl, steht der Grund in
+  `livestream.error`.
   Der Stream endet nach der Höchstdauer (Standard 120 s), weil Akku-Kameras beim Streamen leerlaufen. Den Player-Port
   nur im Heimnetz nutzen und nicht ins Internet weiterleiten.
 - **Station:** `station.reboot` startet eine HomeBase oder eine Kamera ohne HomeBase neu; `station.p2pConnected` zeigt

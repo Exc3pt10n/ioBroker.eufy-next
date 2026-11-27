@@ -1073,7 +1073,11 @@ class EufyNext extends utils.Adapter {
         });
         await this.ensureState(`${base}.url`, stateDef('Player URL (only while streaming)', 'string', 'url'));
         await this.ensureState(`${base}.rtsp`, stateDef('RTSP URL (only while streaming)', 'string', 'url'));
-        await this.ensureState(`${base}.active`, stateDef('Streaming', 'boolean', 'indicator'));
+        await this.ensureState(`${base}.active`, stateDef('Streaming (player has data)', 'boolean', 'indicator'));
+        await this.ensureState(
+            `${base}.error`,
+            stateDef('Why the last start failed (empty when fine)', 'string', 'text'),
+        );
         this.writeHandlers.set(`${this.namespace}.${base}.start`, () => this.startLive(h));
         this.writeHandlers.set(`${this.namespace}.${base}.stop`, () => {
             this.liveSessions.get(h.sn)?.stop('stopped');
@@ -1107,7 +1111,20 @@ class EufyNext extends utils.Adapter {
         await this.setStateAsync(`${base}.active`, !!urls, true);
     }
 
+    private async setLiveError(h: DeviceHandle, message: string): Promise<void> {
+        await this.setStateAsync(`${h.oid}.livestream.error`, message, true);
+    }
+
     private async startLive(h: DeviceHandle): Promise<void> {
+        try {
+            await this.startLiveSession(h);
+        } catch (e) {
+            await this.setLiveError(h, errText(e));
+            throw e;
+        }
+    }
+
+    private async startLiveSession(h: DeviceHandle): Promise<void> {
         if (this.liveSessions.has(h.sn)) {
             this.log.info(`${h.manifest.name}: livestream already running`);
             return;
@@ -1123,6 +1140,7 @@ class EufyNext extends utils.Adapter {
             throw new Error('this camera offers no livestream');
         }
         const stream = h.oid;
+        await this.setLiveError(h, '');
         await server.ensure(stream);
         this.log.info(`${h.manifest.name}: starting livestream`);
         let consumer: LiveConsumerLike;
@@ -1134,6 +1152,7 @@ class EufyNext extends utils.Adapter {
         }
         const maxSec = clampNumber(this.config.liveMaxDurationSec, 0, 86_400, 120);
         let snapshotTimer: ioBroker.Timeout | undefined;
+        let playable = false;
         const session = new LiveSession(consumer, {
             stream,
             ffmpeg: opts.ffmpeg,
@@ -1141,7 +1160,10 @@ class EufyNext extends utils.Adapter {
             maxDurationMs: Math.min(maxSec * 1000, MAX_TIMER_MS),
             log: { debug: m => this.log.debug(m), info: m => this.log.info(m), warn: m => this.log.warn(m) },
             timers: this.adapterTimers(),
+            // only report the stream once go2rtc really has it, so a player opened on `active` never finds it empty
+            ready: () => server.hasProducer(stream),
             onActive: () => {
+                playable = true;
                 const urls = playerUrls(opts, stream);
                 this.log.info(`${h.manifest.name}: livestream running — ${urls.url}`);
                 this.bg(this.setLiveStates(h, urls));
@@ -1162,8 +1184,14 @@ class EufyNext extends utils.Adapter {
                 if (this.liveSessions.get(h.sn) === session) {
                     this.liveSessions.delete(h.sn);
                 }
-                this.log.info(`${h.manifest.name}: livestream ended (${reason})`);
                 this.bg(this.setLiveStates(h, undefined));
+                if (playable || reason === 'stopped' || reason === 'adapter stopping') {
+                    this.log.info(`${h.manifest.name}: livestream ended (${reason})`);
+                } else {
+                    // never became playable: a failed start — tell the user (and visualisations) why
+                    this.log.warn(`${h.manifest.name}: livestream could not be started (${reason})`);
+                    this.bg(this.setLiveError(h, reason));
+                }
             },
         });
         this.liveSessions.set(h.sn, session);

@@ -73,7 +73,7 @@ class FakeLive extends EventEmitter {
             v.length && setInterval(() => {
                 const u = v[vi++ % v.length];
                 this.emit("video", { keyframe: isIdr(u), codec: "h264", width: 320, height: 240, data: u });
-            }, 1000 / 15),
+            }, 1000 / (Number(process.env.FAKE_SDK_FPS) || 15)),
             a.length && setInterval(() => this.emit("audio", { codec: "aac-lc", data: a[ai++ % a.length] }), 64),
         ].filter(Boolean);
         record({ type: "liveStart" });

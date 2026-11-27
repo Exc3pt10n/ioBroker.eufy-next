@@ -68,7 +68,8 @@ tests.integration(path.join(__dirname, ".."), {
                         liveApiPort: LIVE_PORT,
                         liveRtspPort: LIVE_PORT + 1,
                         liveWebrtcPort: LIVE_PORT + 2,
-                        liveMaxDurationSec: 6,
+                        // long enough for a slow start at 3 fps plus the checks below (Windows needed ~4 s to start)
+                        liveMaxDurationSec: 15,
                     },
                 });
                 // an object an older version generated for a write the device has no evidence for
@@ -83,7 +84,7 @@ tests.integration(path.join(__dirname, ".."), {
                 const h264 = path.join(os.tmpdir(), "eufy-next-test.h264");
                 const aac = path.join(os.tmpdir(), "eufy-next-test.aac");
                 execFileSync(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc=size=320x240:rate=15",
-                    "-t", "4", "-c:v", "libx264", "-g", "15", "-pix_fmt", "yuv420p", "-x264-params", "aud=1", "-f", "h264", h264]);
+                    "-t", "4", "-c:v", "libx264", "-g", "3", "-pix_fmt", "yuv420p", "-x264-params", "aud=1", "-f", "h264", h264]);
                 execFileSync(ffmpeg, ["-hide_banner", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=16000",
                     "-t", "4", "-ac", "1", "-c:a", "aac", "-f", "adts", aac]);
                 await harness.startAdapter({
@@ -92,6 +93,8 @@ tests.integration(path.join(__dirname, ".."), {
                     FAKE_SDK_LOG: logFile,
                     FAKE_SDK_H264: h264,
                     FAKE_SDK_AAC: aac,
+                    // like a battery camera: few frames per second, so ffmpeg needs a while before go2rtc has data
+                    FAKE_SDK_FPS: "3",
                 });
                 const st = (id) => harness.states.getStateAsync(id);
 
@@ -191,13 +194,25 @@ tests.integration(path.join(__dirname, ".."), {
                 if (url !== `http://127.0.0.1:${LIVE_PORT}/stream.html?src=T8420FAKE0001`) throw new Error(`url ${url}`);
                 if ((await st(`${P}.livestream.rtsp`)).val !== `rtsp://127.0.0.1:${LIVE_PORT + 1}/T8420FAKE0001`) throw new Error("rtsp url");
 
+                // active=true must mean the player can play: go2rtc already has the camera's stream at this moment
+                // (a player opened earlier showed "streams: unknown error" on low-frame-rate cameras)
+                const now = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json());
+                if (!now?.T8420FAKE0001?.producers?.some((p) => (p.medias || []).length)) {
+                    throw new Error(`active=true but go2rtc has no producer yet: ${JSON.stringify(now)}`);
+                }
+                if ((await st(`${P}.livestream.error`))?.val !== "") throw new Error("livestream.error not empty after a good start");
                 const streams = await waitFor(async () => {
                     const r = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json(), () => undefined);
                     const medias = r?.T8420FAKE0001?.producers?.flatMap((p) => p.medias || []) || [];
                     return medias.some((m) => m.includes("H264")) && medias.some((m) => m.includes("MPEG4-GENERIC")) ? medias : undefined;
                 }, "go2rtc producer with H264 + AAC");
                 console.log("go2rtc medias:", JSON.stringify(streams));
-                const frame = Buffer.from(await (await fetch(`http://127.0.0.1:${LIVE_PORT}/api/frame.jpeg?src=T8420FAKE0001`)).arrayBuffer());
+                // a keyframe per second at 3 fps (GOP 3); the timeout reports a failure instead of hanging until mocha gives up
+                const frame = Buffer.from(
+                    await (
+                        await fetch(`http://127.0.0.1:${LIVE_PORT}/api/frame.jpeg?src=T8420FAKE0001`, { signal: AbortSignal.timeout(15_000) })
+                    ).arrayBuffer(),
+                );
                 if (frame[0] !== 0xff || frame[1] !== 0xd8 || frame.length < 1000) throw new Error(`frame.jpeg: ${frame.length} bytes`);
 
                 await harness.states.setStateAsync(`${P}.livestream.stop`, { val: true, ack: false });
@@ -205,13 +220,13 @@ tests.integration(path.join(__dirname, ".."), {
                 if ((await st(`${P}.livestream.url`)).val !== "") throw new Error("url not cleared after stop");
                 await waitFor(() => sent().some((e) => e.type === "liveStop"), "camera consumer released");
 
-                // maximum duration (6 s in this test) ends a stream on its own
+                // maximum duration (15 s in this test) ends a stream on its own
                 const t0 = Date.now();
                 await harness.states.setStateAsync(`${P}.livestream.start`, { val: true, ack: false });
                 await waitFor(async () => (await st(`${P}.livestream.active`))?.val === true, "second livestream", 30_000);
-                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === false, "stop at maximum duration", 20_000);
+                await waitFor(async () => (await st(`${P}.livestream.active`))?.val === false, "stop at maximum duration", 30_000);
                 const took = Date.now() - t0;
-                if (took < 5000) throw new Error(`stopped too early (${took} ms)`);
+                if (took < 14_000) throw new Error(`stopped too early (${took} ms)`);
                 if (sent().filter((e) => e.type === "liveStop").length !== 2) throw new Error("second consumer not released");
             });
         });
