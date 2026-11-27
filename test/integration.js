@@ -129,7 +129,9 @@ tests.integration(path.join(__dirname, ".."), {
                 await waitFor(async () => (await st(`${P}.events.motion.triggered`))?.val === true, "motion event");
                 const payload = JSON.parse(String((await st(`${P}.events.motion.payload`)).val));
                 if (payload.thumbnailUrl !== "https://example.invalid/t.jpg") throw new Error("motion payload");
-                if ((await st(`${P}.events.lastEvent`))?.val !== "motion") throw new Error("lastEvent");
+                // the adapter writes events.lastEvent after events.<name>.triggered: wait for it instead of reading once
+                // (a fast runner read the old value in between)
+                await waitFor(async () => (await st(`${P}.events.lastEvent`))?.val === "motion", "lastEvent = motion");
 
                 // Commands go through the real SDK setters/actions. The SDK refuses writes whose wire format is not
                 // verified for this (synthetic) device — light.set, lock.lock and arming.setMode here, which need a
