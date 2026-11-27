@@ -22,6 +22,7 @@ declare global {
             liveRtspUsername: string;
             liveRtspPassword: string;
             liveSnapshot: boolean;
+            liveAudio: boolean;
             liveHttps: boolean;
             liveCertPublic: string;
             liveCertPrivate: string;

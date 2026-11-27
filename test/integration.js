@@ -95,6 +95,8 @@ tests.integration(path.join(__dirname, ".."), {
                     FAKE_SDK_AAC: aac,
                     // like a battery camera: few frames per second, so ffmpeg needs a while before go2rtc has data
                     FAKE_SDK_FPS: "3",
+                    // and sound in bursts with long pauses (a browser player froze on that before silence was filled in)
+                    FAKE_SDK_AUDIO: "sparse",
                 });
                 const st = (id) => harness.states.getStateAsync(id);
 
@@ -201,6 +203,21 @@ tests.integration(path.join(__dirname, ".."), {
                     throw new Error(`active=true but go2rtc has no producer yet: ${JSON.stringify(now)}`);
                 }
                 if ((await st(`${P}.livestream.error`))?.val !== "") throw new Error("livestream.error not empty after a good start");
+
+                // the camera's sound stopped after a short burst; the audio track must keep growing all the same
+                // (filled with silence), or a browser player (MSE) freezes the picture
+                const audioRx = async () => {
+                    const r = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json());
+                    const rec = (r?.T8420FAKE0001?.producers || []).flatMap((p) => p.receivers || []);
+                    const a = rec.find((x) => x.codec?.codec_type === "audio") || {};
+                    return { packets: a.packets ?? 0, bytes: a.bytes ?? 0 };
+                };
+                await sleep(2000); // past the camera's burst
+                const a0 = await audioRx();
+                await sleep(4000);
+                const a1 = await audioRx();
+                console.log(`audio during the camera's pause: +${a1.packets - a0.packets} packets, +${a1.bytes - a0.bytes} bytes in 4 s`);
+                if (a1.bytes - a0.bytes <= 0) throw new Error("audio track starves while the camera's sound pauses");
                 const streams = await waitFor(async () => {
                     const r = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json(), () => undefined);
                     const medias = r?.T8420FAKE0001?.producers?.flatMap((p) => p.medias || []) || [];

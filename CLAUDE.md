@@ -24,6 +24,10 @@ The adapter is TypeScript, compiled to CommonJS (`build/`), and loads the SDK wi
   before that a player gets "streams: unknown error". ffmpeg uses a short probe (`-probesize`/`-analyzeduration`)
   so low-frame-rate battery cameras start quickly. A start that never becomes playable writes its reason to
   `livestream.error`. The integration test runs the fake camera at 3 fps to cover this.
+  Battery cameras send sound in bursts; a browser player (MSE) freezes the picture while the audio track has no
+  data, so `LiveSession` fills pauses with silence at the real frame rate (silent mono AAC-LC block `01 18 20 07`
+  under the camera's ADTS header; 0xD5 for G.711). The integration test uses `FAKE_SDK_AUDIO=sparse`; a reproduction
+  with Chromium (playwright) showed `currentTime` stuck at 0 without the fill.
 - The SDK refuses unverified write paths with an exception — intended; the adapter logs a warning and carries on.
 - Roles follow the ioBroker role list (stateroles.md): no bare `level.mode`/`value.mode`; `value.*` only for
   read-only numbers, `level.*`/`switch` readable and writable. `test/mapping.test.mjs` enforces this for every state

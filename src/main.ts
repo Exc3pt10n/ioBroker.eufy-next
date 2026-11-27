@@ -1112,7 +1112,9 @@ class EufyNext extends utils.Adapter {
     }
 
     private async setLiveError(h: DeviceHandle, message: string): Promise<void> {
-        await this.setStateAsync(`${h.oid}.livestream.error`, message, true);
+        // setStateChanged: clearing an already empty error must not produce an update a visualisation could
+        // take for a new failure
+        await this.setStateChangedAsync(`${h.oid}.livestream.error`, message, true);
     }
 
     private async startLive(h: DeviceHandle): Promise<void> {
@@ -1158,6 +1160,7 @@ class EufyNext extends utils.Adapter {
             ffmpeg: opts.ffmpeg,
             target: pushUrl(opts, stream),
             maxDurationMs: Math.min(maxSec * 1000, MAX_TIMER_MS),
+            audio: this.config.liveAudio !== false,
             log: { debug: m => this.log.debug(m), info: m => this.log.info(m), warn: m => this.log.warn(m) },
             timers: this.adapterTimers(),
             // only report the stream once go2rtc really has it, so a player opened on `active` never finds it empty
@@ -1315,6 +1318,10 @@ class EufyNext extends utils.Adapter {
             if (!this.devicesLoaded) {
                 this.log.warn(`Cannot write ${local}: not connected to eufy`);
                 return;
+            }
+            if (local.endsWith('.livestream.start') || local.endsWith('.livestream.stop')) {
+                // visualisations open and close streams on their own: say who did it
+                this.log.info(`${local} requested by ${state.from || 'unknown'}`);
             }
             await handler(state.val);
             const obj = await this.getObjectAsync(local);

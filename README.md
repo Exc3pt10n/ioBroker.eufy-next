@@ -86,6 +86,8 @@ page plays via MSE/HLS (with sound) or WebRTC.
 - **Ports**: player/API 1984, RTSP 8554, WebRTC 8555 (TCP/UDP). The player port has **no login** — keep it in
   your home network and never forward it to the internet. RTSP can be protected with user/password.
 - While a stream runs, a still is stored as `snapshot.url` (option *Save a still from the running stream*).
+- Sound: battery cameras send their sound in bursts. Browser players only play while picture and sound both have
+  data, so the adapter fills the pauses with silence. Turn off *Livestream with sound* for video only.
 - ffmpeg: the configured path, else the bundled `ffmpeg-static`.
 
 ### Station, PTZ presets, quick responses
@@ -162,6 +164,13 @@ Developer information: [DEVELOPMENT.md](DEVELOPMENT.md).
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 0.6.0 (2026-11-27)
+
+- (Exc3pt10n) Livestream: pauses in the camera's sound are filled with silence. Battery cameras send their sound in
+  bursts, and browser players stopped the picture (black image) while the audio track had no data
+- (Exc3pt10n) New option *Livestream with sound* (on by default); off streams video only
+- (Exc3pt10n) The log names who started or stopped a livestream; `livestream.error` is only reset when it held an error
 
 ### 0.5.0 (2026-11-27)
 

@@ -74,7 +74,15 @@ class FakeLive extends EventEmitter {
                 const u = v[vi++ % v.length];
                 this.emit("video", { keyframe: isIdr(u), codec: "h264", width: 320, height: 240, data: u });
             }, 1000 / (Number(process.env.FAKE_SDK_FPS) || 15)),
-            a.length && setInterval(() => this.emit("audio", { codec: "aac-lc", data: a[ai++ % a.length] }), 64),
+            a.length &&
+                setInterval(() => {
+                    // FAKE_SDK_AUDIO=sparse: like the outdoor battery cameras, a short burst of sound and then a pause
+                    // (here: the pause never ends, so any audio afterwards can only be the adapter's silence)
+                    const n = ai++;
+                    if (process.env.FAKE_SDK_AUDIO !== "sparse" || n < 20) {
+                        this.emit("audio", { codec: "aac-lc", data: a[n % a.length] });
+                    }
+                }, 64),
         ].filter(Boolean);
         record({ type: "liveStart" });
     }

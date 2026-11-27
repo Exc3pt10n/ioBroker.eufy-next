@@ -313,6 +313,17 @@
                     "lg": 12,
                     "xl": 12
                 },
+                "liveAudio": {
+                    "type": "checkbox",
+                    "newLine": true,
+                    "xs": 12,
+                    "sm": 12,
+                    "md": 12,
+                    "lg": 12,
+                    "xl": 12,
+                    "disabled": "!data.liveEnabled",
+                    "label": "Livestream with sound (pauses in the camera's sound are filled with silence)"
+                },
                 "liveHttps": {
                     "type": "checkbox",
                     "newLine": true,

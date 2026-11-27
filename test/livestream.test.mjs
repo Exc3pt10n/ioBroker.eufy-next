@@ -112,3 +112,20 @@ test("HTTPS: TLS on the player port, plain HTTP for the adapter on loopback next
     assert.equal(L.internalApiPort(opts), 1984);
     assert.equal(L.playerUrls(o, "CAM1").url, "https://10.0.0.5:1984/stream.html?src=CAM1");
 });
+
+test("silent ADTS frame copies the camera's AAC-LC mono header and carries the silent block", () => {
+    // ADTS header of AAC-LC, 16 kHz (index 8), mono, as the cameras send it
+    const camera = Buffer.from([0xff, 0xf1, 0x60, 0x40, 0x10, 0x9f, 0xfc, 0x21, 0x00]);
+    const silent = L.silentAdtsFrame(camera);
+    assert.ok(silent);
+    assert.equal(silent.length, 11);
+    assert.equal(silent[0], 0xff);
+    assert.equal(silent[2], 0x60); // same profile + sample rate index
+    assert.equal(silent[3] >> 6, 1); // mono
+    assert.equal(((silent[3] & 3) << 11) | (silent[4] << 3) | (silent[5] >> 5), 11); // frame length field
+    assert.deepEqual([...silent.subarray(7)], [0x01, 0x18, 0x20, 0x07]);
+    assert.equal(L.audioFrameMs(camera), 64);
+    // stereo or non-AAC-LC: no silent frame (the block above is only valid for mono AAC-LC)
+    assert.equal(L.silentAdtsFrame(Buffer.from([0xff, 0xf1, 0x60, 0x80, 0x10, 0x9f, 0xfc])), undefined);
+    assert.equal(L.silentAdtsFrame(Buffer.from([0x00, 0x01, 0x02])), undefined);
+});
