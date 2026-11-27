@@ -114,6 +114,12 @@ export function ffmpegArgs(videoCodec: 'h264' | 'h265', audio: AudioInput, targe
         'error',
         '-fflags',
         '+genpts+nobuffer',
+        // The stream starts at a keyframe with its parameter sets, so a short analysis is enough; the default
+        // (5 s / 5 MB) delays the push into go2rtc by several seconds on low-frame-rate battery cameras.
+        '-probesize',
+        '65536',
+        '-analyzeduration',
+        '500000',
         '-use_wallclock_as_timestamps',
         '1',
         '-f',
@@ -250,6 +256,15 @@ export class Go2rtcServer {
         return res;
     }
 
+    /** Whether go2rtc has a producer with media for `stream`, i.e. the push actually arrived. */
+    public async hasProducer(stream: string): Promise<boolean> {
+        const all = (await (await this.api('/api/streams')).json()) as Record<
+            string,
+            { producers?: { medias?: unknown[] }[] | null } | undefined
+        >;
+        return !!all[stream]?.producers?.some(p => (p.medias?.length ?? 0) > 0);
+    }
+
     /** A JPEG of the stream's current picture (go2rtc decodes it with ffmpeg). */
     public async frame(stream: string): Promise<Buffer> {
         const res = await this.api(`/api/frame.jpeg?src=${encodeURIComponent(stream)}`);
@@ -301,9 +316,16 @@ export interface LiveSessionOptions {
     audioProbeMs?: number;
     /** Give up when no video keyframe arrives within this time. */
     firstFrameTimeoutMs?: number;
+    /**
+     * Resolves true once the player side really has the stream (go2rtc reports a producer). Polled after ffmpeg
+     * started; `onActive` waits for it, so a player opened on `onActive` never finds an empty stream.
+     */
+    ready?: () => Promise<boolean>;
+    /** Give up when `ready` does not turn true within this time after ffmpeg started. */
+    readyTimeoutMs?: number;
     log: LiveLogger;
     timers?: TimerApi;
-    /** Called once, when the push into go2rtc is running. */
+    /** Called once, when the stream is playable (after `ready`). */
     onActive: () => void;
     /** Called once, whenever and however the session ends. */
     onEnded: (reason: string) => void;
@@ -319,6 +341,7 @@ export class LiveSession {
     private audioIn?: Writable;
     private ended = false;
     private started = false;
+    private playable = false;
     private videoCodec?: 'h264' | 'h265';
     private audioCodec: AudioInput;
     private pending: { kind: 'v' | 'a'; data: Buffer }[] = [];
@@ -357,7 +380,7 @@ export class LiveSession {
     }
 
     public get active(): boolean {
-        return this.started && !this.ended;
+        return this.playable && !this.ended;
     }
 
     private onVideo(f: { keyframe: boolean; codec: string; data: Buffer }): void {
@@ -429,7 +452,37 @@ export class LiveSession {
             this.write(p.kind, p.data);
         }
         this.started = true;
-        this.o.onActive();
+        this.waitReady(Date.now() + (this.o.readyTimeoutMs ?? 20_000));
+    }
+
+    /** Poll `ready` until the player side has the stream, then report the session active. */
+    private waitReady(deadline: number): void {
+        if (this.ended) {
+            return;
+        }
+        const check = this.o.ready ?? (() => Promise.resolve(true));
+        check().then(
+            ok => {
+                if (this.ended) {
+                    return;
+                }
+                if (ok) {
+                    this.playable = true;
+                    this.o.onActive();
+                } else if (Date.now() > deadline) {
+                    this.end('the player received no data from the camera (go2rtc has no stream)');
+                } else {
+                    this.timerHandles.push(this.timers.set(() => this.waitReady(deadline), 250));
+                }
+            },
+            () => {
+                if (Date.now() > deadline) {
+                    this.end('go2rtc did not answer');
+                } else if (!this.ended) {
+                    this.timerHandles.push(this.timers.set(() => this.waitReady(deadline), 250));
+                }
+            },
+        );
     }
 
     /** Stop the stream (idempotent). */

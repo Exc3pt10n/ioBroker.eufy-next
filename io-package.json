@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.4.1",
+        "version": "0.5.0",
         "news": {
+            "0.5.0": {
+                "en": "Livestream: active/url are only set once the player really has the camera stream (fixes \"streams: unknown error\" on battery cameras), faster start, new state livestream.error",
+                "de": "Livestream: active/url erst, wenn der Player den Kamerastream wirklich hat (behebt „streams: unknown error“ bei Akku-Kameras), schnellerer Start, neuer Datenpunkt livestream.error",
+                "ru": "Трансляция: active/url устанавливаются только когда плеер действительно получает поток камеры (исправляет «streams: unknown error» на камерах с батареей), более быстрый запуск, новое состояние livestream.error",
+                "pt": "Transmissão: active/url só são definidos quando o leitor recebe de facto o fluxo da câmara (corrige \"streams: unknown error\" em câmaras a bateria), arranque mais rápido, novo estado livestream.error",
+                "nl": "Livestream: active/url worden pas gezet als de speler de camerastream echt heeft (lost \"streams: unknown error\" op bij camera's op batterij), snellere start, nieuwe status livestream.error",
+                "fr": "Flux en direct : active/url ne sont définis que lorsque le lecteur reçoit réellement le flux de la caméra (corrige « streams: unknown error » sur les caméras à batterie), démarrage plus rapide, nouvel état livestream.error",
+                "it": "Livestream: active/url vengono impostati solo quando il player riceve davvero il flusso della telecamera (risolve \"streams: unknown error\" sulle telecamere a batteria), avvio più rapido, nuovo stato livestream.error",
+                "es": "Transmisión: active/url solo se establecen cuando el reproductor recibe realmente el flujo de la cámara (corrige \"streams: unknown error\" en cámaras con batería), inicio más rápido, nuevo estado livestream.error",
+                "pl": "Transmisja: active/url są ustawiane dopiero, gdy odtwarzacz faktycznie otrzymuje strumień kamery (naprawia „streams: unknown error” w kamerach na baterię), szybszy start, nowy stan livestream.error",
+                "uk": "Трансляція: active/url встановлюються лише тоді, коли плеєр справді отримує потік камери (виправляє «streams: unknown error» на камерах з батареєю), швидший запуск, новий стан livestream.error",
+                "zh-cn": "直播：仅在播放器真正收到摄像头视频流后才设置 active/url（修复电池摄像头出现的 \"streams: unknown error\"），启动更快，新增状态 livestream.error"
+            },
             "0.4.1": {
                 "en": "Fixes for the ioBroker repository checker (timers, no process.env, README without installation commands); ffmpeg: configured path, else the bundled one",
                 "de": "Korrekturen für den ioBroker-Repochecker (Timer, kein process.env, README ohne Installationsbefehle); ffmpeg: konfigurierter Pfad, sonst das mitgelieferte",

@@ -92,6 +92,8 @@ tests.integration(path.join(__dirname, ".."), {
                     FAKE_SDK_LOG: logFile,
                     FAKE_SDK_H264: h264,
                     FAKE_SDK_AAC: aac,
+                    // like a battery camera: few frames per second, so ffmpeg needs a while before go2rtc has data
+                    FAKE_SDK_FPS: "3",
                 });
                 const st = (id) => harness.states.getStateAsync(id);
 
@@ -191,6 +193,13 @@ tests.integration(path.join(__dirname, ".."), {
                 if (url !== `http://127.0.0.1:${LIVE_PORT}/stream.html?src=T8420FAKE0001`) throw new Error(`url ${url}`);
                 if ((await st(`${P}.livestream.rtsp`)).val !== `rtsp://127.0.0.1:${LIVE_PORT + 1}/T8420FAKE0001`) throw new Error("rtsp url");
 
+                // active=true must mean the player can play: go2rtc already has the camera's stream at this moment
+                // (a player opened earlier showed "streams: unknown error" on low-frame-rate cameras)
+                const now = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json());
+                if (!now?.T8420FAKE0001?.producers?.some((p) => (p.medias || []).length)) {
+                    throw new Error(`active=true but go2rtc has no producer yet: ${JSON.stringify(now)}`);
+                }
+                if ((await st(`${P}.livestream.error`))?.val !== "") throw new Error("livestream.error not empty after a good start");
                 const streams = await waitFor(async () => {
                     const r = await fetch(`http://127.0.0.1:${LIVE_PORT}/api/streams`).then((x) => x.json(), () => undefined);
                     const medias = r?.T8420FAKE0001?.producers?.flatMap((p) => p.medias || []) || [];

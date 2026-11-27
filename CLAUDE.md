@@ -20,6 +20,10 @@ The adapter is TypeScript, compiled to CommonJS (`build/`), and loads the SDK wi
   raw ADTS stream only reveals later. The raw ffmpeg input uses wall-clock timestamps and therefore needs frames in
   real time (tests play files at 15 fps). The go2rtc configuration (RTSP password, TLS key) goes into a 0600 file in
   the instance data directory, never onto the command line.
+  `livestream.active`/`url` are set only once go2rtc reports a producer for the stream (`ready` → `hasProducer`);
+  before that a player gets "streams: unknown error". ffmpeg uses a short probe (`-probesize`/`-analyzeduration`)
+  so low-frame-rate battery cameras start quickly. A start that never becomes playable writes its reason to
+  `livestream.error`. The integration test runs the fake camera at 3 fps to cover this.
 - The SDK refuses unverified write paths with an exception — intended; the adapter logs a warning and carries on.
 - Roles follow the ioBroker role list (stateroles.md): no bare `level.mode`/`value.mode`; `value.*` only for
   read-only numbers, `level.*`/`switch` readable and writable. `test/mapping.test.mjs` enforces this for every state

@@ -47,7 +47,7 @@ eufy-next.0
     ├── events.motion.triggered / lastTriggered / payload
     ├── events.lastEvent
     ├── snapshot.url / dataUrl / updated / refreshStored / refreshLive   (cameras)
-    ├── livestream.start / stop / url / rtsp / active             (cameras)
+    ├── livestream.start / stop / url / rtsp / active / error     (cameras)
     ├── station.reboot / p2pConnected                             (HomeBase, standalone cameras)
     ├── ptz.presetGoto / presetSave / presetDelete                (pan & tilt cameras)
     └── doorbell.quickResponse / quickResponses                   (doorbells)
@@ -72,7 +72,8 @@ Cameras that can stream get a `livestream` channel:
 | `livestream.stop`   | `button.stop`  | Stop streaming                                                   |
 | `livestream.url`    | `url`          | Player page `http://<host>:1984/stream.html?src=<SERIAL>` — only while streaming, otherwise empty |
 | `livestream.rtsp`   | `url`          | `rtsp://<host>:8554/<SERIAL>` — only while streaming             |
-| `livestream.active` | `indicator`    | Stream is running                                                |
+| `livestream.active` | `indicator`    | Stream is playable: `true` only once the player server has the camera's data |
+| `livestream.error`  | `text`         | Why the last start failed (e.g. no video from the camera); empty after a good start |
 
 The adapter bundles [go2rtc](https://github.com/AlexxIT/go2rtc) as player server and pushes the camera's video
 (copied, never re-encoded) and sound (as AAC) into it with ffmpeg. go2rtc starts with the first stream. The player
@@ -161,6 +162,14 @@ Developer information: [DEVELOPMENT.md](DEVELOPMENT.md).
     Placeholder for the next version (at the beginning of the line):
     ### **WORK IN PROGRESS**
 -->
+
+### 0.5.0 (2026-11-27)
+
+- (Exc3pt10n) Livestream: `livestream.active` and `livestream.url` are only set once go2rtc really has the camera's
+  stream; before, a player opened right away could show "streams: unknown error" on battery cameras with a low frame
+  rate
+- (Exc3pt10n) Livestream starts faster (shorter ffmpeg stream analysis)
+- (Exc3pt10n) New state `livestream.error` with the reason of a failed start
 
 ### 0.4.1 (2026-11-26)
 
