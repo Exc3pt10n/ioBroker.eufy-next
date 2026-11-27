@@ -51,5 +51,6 @@
     "Ignore devices (serial numbers, comma separated)": "Apparaten negeren (serienummers, kommagescheiden)",
     "Client identity (openudid, optional)": "Clientidentiteit (openudid, optioneel)",
     "Leave empty — a stable random identity is generated per instance.": "Leeg laten — per instantie wordt een vaste willekeurige identiteit aangemaakt.",
-    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "Uitgebreide SDK-logging (info/warn van de SDK in het ioBroker-log)"
+    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "Uitgebreide SDK-logging (info/warn van de SDK in het ioBroker-log)",
+    "Livestream with sound (pauses in the camera's sound are filled with silence)": "Livestream met geluid (pauzes in het camerageluid worden met stilte opgevuld)"
 }

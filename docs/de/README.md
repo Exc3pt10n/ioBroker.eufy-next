@@ -35,7 +35,8 @@ anbietet (z. B. `camera.nightVision`, `battery.level`, `arming.mode`, `light.bri
   mit Vorschaubild. Dafür in der eufy-App eine Benachrichtigungsart *mit Vorschaubild* wählen.
 - **Livestream:** `livestream.start` drücken. Sobald der Player Daten von der Kamera hat, wird `livestream.active` zu
   `true` und `livestream.url` enthält die Player-Seite (go2rtc, Port 1984). Schlägt der Start fehl, steht der Grund in
-  `livestream.error`.
+  `livestream.error`. Akku-Kameras senden ihren Ton nur stoßweise; Pausen füllt der Adapter mit Stille,
+  sonst bleibt das Bild im Browser schwarz. Mit der Option *Livestream mit Ton* aus gibt es nur Bild.
   Der Stream endet nach der Höchstdauer (Standard 120 s), weil Akku-Kameras beim Streamen leerlaufen. Den Player-Port
   nur im Heimnetz nutzen und nicht ins Internet weiterleiten.
 - **Station:** `station.reboot` startet eine HomeBase oder eine Kamera ohne HomeBase neu; `station.p2pConnected` zeigt

@@ -1,8 +1,21 @@
 {
     "common": {
         "name": "eufy-next",
-        "version": "0.5.0",
+        "version": "0.6.0",
         "news": {
+            "0.6.0": {
+                "en": "Livestream: pauses in the camera sound are filled with silence (fixes the black picture of battery cameras); option for video only; log names who started/stopped a stream",
+                "de": "Livestream: Pausen im Kameraton werden mit Stille gefüllt (behebt das schwarze Bild bei Akku-Kameras); Option für nur Bild; Log nennt, wer einen Stream gestartet/beendet hat",
+                "ru": "Трансляция: паузы в звуке камеры заполняются тишиной (исправляет чёрное изображение камер с батареей); опция только видео; журнал указывает, кто запустил/остановил поток",
+                "pt": "Transmissão: pausas no som da câmara são preenchidas com silêncio (corrige a imagem preta das câmaras a bateria); opção só vídeo; o registo indica quem iniciou/parou a transmissão",
+                "nl": "Livestream: pauzes in het camerageluid worden met stilte opgevuld (lost het zwarte beeld van camera's op batterij op); optie voor alleen beeld; log toont wie een stream start/stopt",
+                "fr": "Flux en direct : les pauses du son de la caméra sont comblées par du silence (corrige l'image noire des caméras à batterie) ; option vidéo seule ; le journal indique qui a démarré/arrêté un flux",
+                "it": "Livestream: le pause nell'audio della telecamera vengono riempite con silenzio (risolve l'immagine nera delle telecamere a batteria); opzione solo video; il log indica chi ha avviato/fermato uno stream",
+                "es": "Transmisión: las pausas en el sonido de la cámara se rellenan con silencio (corrige la imagen negra de las cámaras con batería); opción solo vídeo; el registro indica quién inició/detuvo una transmisión",
+                "pl": "Transmisja: przerwy w dźwięku kamery są wypełniane ciszą (naprawia czarny obraz kamer na baterię); opcja tylko obraz; dziennik podaje, kto uruchomił/zatrzymał transmisję",
+                "uk": "Трансляція: паузи у звуці камери заповнюються тишею (виправляє чорне зображення камер з батареєю); опція лише відео; журнал показує, хто запустив/зупинив потік",
+                "zh-cn": "直播：摄像头声音的停顿以静音填充（修复电池摄像头黑屏问题）；可选仅视频；日志记录由谁启动/停止直播"
+            },
             "0.5.0": {
                 "en": "Livestream: active/url are only set once the player really has the camera stream (fixes \"streams: unknown error\" on battery cameras), faster start, new state livestream.error",
                 "de": "Livestream: active/url erst, wenn der Player den Kamerastream wirklich hat (behebt „streams: unknown error“ bei Akku-Kameras), schnellerer Start, neuer Datenpunkt livestream.error",
@@ -184,7 +197,8 @@
         "snapshotDataUrl": true,
         "liveHttps": false,
         "liveCertPublic": "",
-        "liveCertPrivate": ""
+        "liveCertPrivate": "",
+        "liveAudio": true
     },
     "objects": [],
     "instanceObjects": [

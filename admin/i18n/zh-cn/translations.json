@@ -51,5 +51,6 @@
     "Ignore devices (serial numbers, comma separated)": "忽略设备（序列号，逗号分隔）",
     "Client identity (openudid, optional)": "客户端标识（openudid，可选）",
     "Leave empty — a stable random identity is generated per instance.": "留空 — 每个实例会生成一个固定的随机标识。",
-    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "详细 SDK 日志（在 ioBroker 日志中显示 SDK 的 info/warn）"
+    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "详细 SDK 日志（在 ioBroker 日志中显示 SDK 的 info/warn）",
+    "Livestream with sound (pauses in the camera's sound are filled with silence)": "带声音的直播（摄像头声音的停顿以静音填充）"
 }

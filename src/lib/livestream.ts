@@ -142,6 +142,47 @@ export function ffmpegArgs(videoCodec: 'h264' | 'h265', audio: AudioInput, targe
     return args;
 }
 
+/** Silent AAC-LC mono access unit (raw data block): the same four bytes at every sample rate. */
+const AAC_SILENT_MONO = Buffer.from([0x01, 0x18, 0x20, 0x07]);
+
+/**
+ * A silent ADTS frame matching the camera's own ADTS header (profile, sample rate, channels), or undefined when the
+ * header is not mono AAC-LC — the only layout the silent block above is valid for.
+ */
+export function silentAdtsFrame(cameraFrame: Buffer): Buffer | undefined {
+    if (cameraFrame.length < 7 || cameraFrame[0] !== 0xff || (cameraFrame[1] & 0xf0) !== 0xf0) {
+        return undefined;
+    }
+    const objectType = (cameraFrame[2] >> 6) + 1; // 2 = AAC-LC
+    const channels = ((cameraFrame[2] & 0x01) << 2) | (cameraFrame[3] >> 6);
+    if (objectType !== 2 || channels !== 1) {
+        return undefined;
+    }
+    const length = 7 + AAC_SILENT_MONO.length;
+    const header = Buffer.from([
+        0xff,
+        0xf1, // MPEG-4, no CRC
+        cameraFrame[2], // profile, sample rate index, private bit, channel config (high bit)
+        (cameraFrame[3] & 0xc0) | (length >> 11),
+        (length >> 3) & 0xff,
+        ((length & 0x07) << 5) | 0x1f,
+        0xfc,
+    ]);
+    return Buffer.concat([header, AAC_SILENT_MONO]);
+}
+
+/** Duration of one camera audio frame in ms: 1024 samples at the ADTS sample rate (AAC), 64 ms otherwise. */
+export function audioFrameMs(cameraFrame: Buffer | undefined): number {
+    const rates = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+    if (cameraFrame && cameraFrame.length >= 3 && cameraFrame[0] === 0xff) {
+        const rate = rates[(cameraFrame[2] >> 2) & 0x0f];
+        if (rate) {
+            return (1024 / rate) * 1000;
+        }
+    }
+    return 64;
+}
+
 /** First non-internal IPv4 address of this host — the default hostname for player URLs. */
 export function detectHostname(): string {
     for (const list of Object.values(networkInterfaces())) {
@@ -323,6 +364,8 @@ export interface LiveSessionOptions {
     ready?: () => Promise<boolean>;
     /** Give up when `ready` does not turn true within this time after ffmpeg started. */
     readyTimeoutMs?: number;
+    /** Pass the camera's sound on (default true). Without it the stream is video only. */
+    audio?: boolean;
     log: LiveLogger;
     timers?: TimerApi;
     /** Called once, when the stream is playable (after `ready`). */
@@ -346,6 +389,12 @@ export class LiveSession {
     private audioCodec: AudioInput;
     private pending: { kind: 'v' | 'a'; data: Buffer }[] = [];
     private timerHandles: unknown[] = [];
+    /** Silence written into gaps of the camera's sound (the browser player stalls while one track has no data). */
+    private silence?: Buffer;
+    private audioFrameMs = 64;
+    private lastAudioAt = 0;
+    private audioTick?: unknown;
+    private stats = { video: 0, keyframes: 0, audio: 0, silence: 0 };
     private readonly timers: TimerApi;
     private deadline = 0;
 
@@ -398,6 +447,10 @@ export class LiveSession {
             this.videoCodec = f.codec;
             this.timerHandles.push(this.timers.set(() => this.startFfmpeg(), this.o.audioProbeMs ?? 1500));
         }
+        this.stats.video++;
+        if (f.keyframe) {
+            this.stats.keyframes++;
+        }
         this.write('v', f.data);
     }
 
@@ -405,10 +458,23 @@ export class LiveSession {
         if (this.ended || !this.videoCodec) {
             return;
         }
+        if (this.o.audio === false) {
+            return;
+        }
         if (!this.ffmpeg && this.audioCodec === undefined && (f.codec === 'aac-lc' || f.codec === 'g711a')) {
             this.audioCodec = f.codec;
+            this.audioFrameMs = f.codec === 'aac-lc' ? audioFrameMs(f.data) : 64;
+            // G.711 A-law silence is 0xD5; at the 16 kHz the pipeline assumes, 64 ms are 1024 bytes
+            this.silence = f.codec === 'aac-lc' ? silentAdtsFrame(f.data) : Buffer.alloc(1024, 0xd5);
+            if (!this.silence) {
+                this.o.log.debug(
+                    `[${this.o.stream}] camera audio is not mono AAC-LC — gaps are not filled with silence`,
+                );
+            }
         }
         if (f.codec === this.audioCodec) {
+            this.stats.audio++;
+            this.lastAudioAt = Date.now();
             this.write('a', f.data);
         }
     }
@@ -451,8 +517,33 @@ export class LiveSession {
         for (const p of pending) {
             this.write(p.kind, p.data);
         }
+        if (this.audioCodec && this.silence) {
+            this.lastAudioAt = Date.now();
+            this.scheduleSilence();
+        }
         this.started = true;
         this.waitReady(Date.now() + (this.o.readyTimeoutMs ?? 20_000));
+    }
+
+    /**
+     * Battery cameras send their sound in bursts with long pauses. A browser player (MSE) only plays while both
+     * tracks have data, so the picture froze/stayed black. Whenever the camera's sound pauses for more than two
+     * frames, silence keeps the audio track running at its real rate; the camera's own frames take over again as
+     * soon as they arrive.
+     */
+    private scheduleSilence(): void {
+        this.audioTick = this.timers.set(() => {
+            if (this.ended || !this.silence) {
+                return;
+            }
+            // one silent frame per frame interval while the camera's own sound pauses (lastAudioAt only moves
+            // with real frames), so the audio track keeps its real rate
+            if (Date.now() - this.lastAudioAt > this.audioFrameMs * 2) {
+                this.stats.silence++;
+                this.write('a', this.silence);
+            }
+            this.scheduleSilence();
+        }, this.audioFrameMs);
     }
 
     /** Poll `ready` until the player side has the stream, then report the session active. */
@@ -498,6 +589,14 @@ export class LiveSession {
         for (const t of this.timerHandles) {
             this.timers.clear(t);
         }
+        if (this.audioTick !== undefined) {
+            this.timers.clear(this.audioTick);
+        }
+        const st = this.stats;
+        this.o.log.debug(
+            `[${this.o.stream}] ${st.video} video frames (${st.keyframes} keyframes), ${st.audio} audio frames` +
+                `${this.audioCodec ? ` (${this.audioCodec})` : ''}, ${st.silence} silence frames filled in`,
+        );
         this.pending = [];
         try {
             this.consumer.stop();

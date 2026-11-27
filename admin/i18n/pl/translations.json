@@ -51,5 +51,6 @@
     "Ignore devices (serial numbers, comma separated)": "Ignoruj urządzenia (numery seryjne oddzielone przecinkami)",
     "Client identity (openudid, optional)": "Tożsamość klienta (openudid, opcjonalnie)",
     "Leave empty — a stable random identity is generated per instance.": "Pozostaw puste — dla każdej instancji generowana jest stała losowa tożsamość.",
-    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "Szczegółowe logowanie SDK (info/warn SDK w dzienniku ioBroker)"
+    "Verbose SDK logging (info/warn of the SDK in the ioBroker log)": "Szczegółowe logowanie SDK (info/warn SDK w dzienniku ioBroker)",
+    "Livestream with sound (pauses in the camera's sound are filled with silence)": "Transmisja z dźwiękiem (przerwy w dźwięku kamery są wypełniane ciszą)"
 }
